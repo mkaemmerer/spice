@@ -1,0 +1,30 @@
+path {
+	stroke: black;
+	fill: none;
+}
+
+.axis {
+	stroke: gray;
+}
+
+#graph svg {
+	border: 1px solid gray;
+}
+
+#graph rect {
+	fill: none;
+}
+
+#graph .node {
+	fill: #000;
+}
+
+#graph .cursor {
+	fill: none;
+	stroke: brown;
+	pointer-events: none;
+}
+
+#graph .link {
+	stroke: #999;
+}
