@@ -6,30 +6,16 @@ window.$spice =
 		}
 		return stream
 	}
-	function $spice_mixin_tag_helpers(stream){
-		var tags = [ 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
-		           , 'p', 'div', 'span', 'a'
-		           , 'ul', 'ol', 'li']
-
-		tags.forEach(function(tagName){
-			stream[tagName] = tag(tagName)
-		})
-
-		function tag(tagName){
-			return function(){
-				var tag = $('<' + tagName + '>')
-				return stream.open(tag)
-			}
-		}
-
-		return stream
-	}
 	function $spice_mixin_plugins(stream, context){
 		for(var method in $spice.fn){
 			if($spice.fn.hasOwnProperty(method) && $spice.fn[method]){
-				stream[method] = function(){
-					return $spice.fn[method].call(stream, stream, context.data(), context.index())
-				}
+				stream[method] = delegateMethod(method)
+			}
+		}
+
+		function delegateMethod(method){
+			return function(){
+				return $spice.fn[method].call(stream, stream, context.data(), context.index())
 			}
 		}
 	}
@@ -52,10 +38,14 @@ window.$spice =
 			callback.call(context.result(), context.data(), context.index())
 			return stream
 		}
+		stream.append = function(content){
+			context.push(content)
+			return stream
+		}
 		stream.open = function(content){
 			var new_context = elementContext(content, context.data(), context.index())
 			  , new_stream  = elementStream(new_context)
-			context.push(content)
+			stream.append(content)
 			return $spice_mixin_close(new_stream, stream)
 		}
 		stream.each = function(array){
@@ -79,6 +69,9 @@ window.$spice =
 			var new_stream = conditionalStream(stream.eval(condition), stream, context)
 			return $spice_mixin_close(new_stream, stream)
 		}
+		
+		$spice_mixin_plugins(stream, context)
+
 		return stream
 	}
 
@@ -132,16 +125,14 @@ window.$spice =
 			return context.result()
 		}
 
-		$spice_mixin_plugins(stream, context)
-		$spice_mixin_tag_helpers(stream)
-
 		return stream
 	}
 
 	//TAG
 	var elementContext = function(element, data, index){
-		var context = {}
-		  , buffer  = []
+		var context  = {}
+		  , buffer   = []
+		  , $element = $(element)
 
 		context.data = function(d){
 			if(!arguments.length) return data
@@ -154,15 +145,15 @@ window.$spice =
 
 		context.select = function(selector){
 			return buffer.reduce(function(memo, el){
-				return memo.add(el.find(selector))
+				return memo.add($(el).find(selector))
 			}, $())
 		}
 		context.selectAll = function(selector){
-			return element.find(selector)
+			return $element.find(selector)
 		}
 		context.push = function(content){
 			buffer.push(content)
-			element.append(content)
+			$element.append(content)
 		}
 		context.result = function(){
 			return element
@@ -170,18 +161,18 @@ window.$spice =
 
 		context.methods = {
 			  text: function(text){
-					element.append(text)
+					$element.append(text)
 				}
 			, attr: function(key, value){
-					element.attr(key, value)
+					$element.attr(key, value)
 				}
 			, attrs: function(map){
-					element.attr(map)
+					$element.attr(map)
 				}
 			, classed: function(classes){
 					for(var className in classes){
 						if(classes.hasOwnProperty(className) && classes[className])
-							element.addClass(className)
+							$element.addClass(className)
 					}
 				}
 		}
@@ -194,18 +185,14 @@ window.$spice =
 		stream.select = function(selector){
 			var selection  = context.select(selector)
 			  , streams    = selection.map(function(idx, el){
-			  		var new_context = elementContext($(el), context.data(), context.index())
+			  		var new_context = elementContext(el, context.data(), context.index())
 						return elementStream(new_context)
 					}).get()
-			  , new_context = selection[0] ? elementContext($(selection[0]), context.data(), context.index()) : topLevelContext()
+			  , new_context = selection[0] ? elementContext(selection[0], context.data(), context.index()) : topLevelContext()
 			  , new_stream  = arrayStream(streams, new_context)
 
 			return $spice_mixin_close(new_stream, stream)
 		}
-
-		$spice_mixin_plugins(stream, context)
-		$spice_mixin_tag_helpers(stream)
-
 
 		stream.text = function(text){
 			text = stream.eval(text)
@@ -240,7 +227,7 @@ window.$spice =
 						return s.select(selector)
 					})
 			  , selection   = context.selectAll(selector)
-			  , new_context = selection[0] ? elementContext($(selection[0]), context.data(), context.index()) : topLevelContext()
+			  , new_context = selection[0] ? elementContext(selection[0], context.data(), context.index()) : topLevelContext()
 			  , new_stream  = arrayStream(ss, new_context)
 
 			return $spice_mixin_close(new_stream, stream)
@@ -248,7 +235,8 @@ window.$spice =
 
 		stream.open = function(content){
 			var ss = streams.map(function(s){
-						return s.open(content.clone())
+						var clone = $(content).clone()[0]
+						return s.open(clone)
 					})
 			  , new_context = elementContext(content, context.data(), context.index())
 			  , new_stream  = arrayStream(ss, new_context)
@@ -260,7 +248,7 @@ window.$spice =
 		methods.forEach(function(method){
 			stream[method] = delegateMethod(method)
 		})
-		var mutators = ["call"]
+		var mutators = ["call", "append"]
 		mutators.forEach(function(method){
 			stream[method] = delegateMutator(method)
 		})
@@ -292,9 +280,7 @@ window.$spice =
 			}
 		}
 
-		//TAG HELPERS
 		$spice_mixin_plugins(stream, context)
-		$spice_mixin_tag_helpers(stream)
 
 		return stream
 	}
@@ -306,7 +292,7 @@ window.$spice =
 	var delegateStream = function(parent, context){
 		var stream = {}
 
-		var methods = ["select", "each", "open"]
+		var methods = ["select", "each", "open", "append"]
 		methods.forEach(function(method){
 			stream[method] = function(){
 				var new_stream = parent[method].apply(parent, arguments)
@@ -337,10 +323,7 @@ window.$spice =
 		var true_stream  = condition ? delegateStream(parent, context) : nullStream(context)
 		  , false_stream = condition ? nullStream(context) : delegateStream(parent, context)
 
-		//TAG HELPERS
-		$spice_mixin_tag_helpers(true_stream)
 		$spice_mixin_plugins(true_stream, context)
-		$spice_mixin_tag_helpers(false_stream)
 		$spice_mixin_plugins(false_stream, context)
 
 		true_stream._else = function(){
@@ -352,14 +335,57 @@ window.$spice =
 
 	$spice = function(element){
 		if(element)
-			return topLevelStream(elementContext($(element)))
+			return topLevelStream(elementContext(element))
 		return topLevelStream(topLevelContext())
 	}
 	$spice.select = function(selector){
-		var element = $(selector)
+		var element = $(selector)[0]
 		return topLevelStream(elementContext(element))
 	}	
 	$spice.fn = {}
 
 	return $spice
-})(window.$)
+})(window.$);
+
+
+//Register HTML tags
+(function($spice){
+	var tags = [ 'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio'                                                       //A
+	           , 'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br'                                                             //B
+	           , 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup'                                                            //C
+	           , 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt'                                            //D
+	           , 'em', 'embed'                                                                                                     //E
+	           , 'fieldset', 'figcaption', 'figure', 'footer', 'form'                                                              //F
+	                                                                                                                               //G
+	           , 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'html', 'hr'                                      //H
+	           , 'i', 'iframe', 'img', 'input', 'ins',                                                                             //I
+	                                                                                                                               //J
+	           , 'kbd', 'keygen'                                                                                                   //K
+	           , 'label', 'legend', 'li', 'link'                                                                                   //L
+	           , 'map', 'mark', 'menu', 'meta', 'meter'                                                                            //M
+	           , 'nav', 'noscript'                                                                                                 //N
+	           , 'object', 'ol', 'optgroup', 'option', 'output'                                                                    //O
+	           , 'p', 'param', 'pre', 'progress'                                                                                   //P
+	           , 'q'                                                                                                               //Q
+	           , 'rp', 'rt', 'ruby'                                                                                                //R
+	           , 's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup' //S
+	           , 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track'                        //T
+	           , 'u', 'ul'                                                                                                         //U
+	           , 'var', 'video'                                                                                                    //V
+	           , 'wbr'                                                                                                             //W
+	                                                                                                                               //X
+	                                                                                                                               //Y
+	                                                                                                                               //Z
+	           ]
+
+	tags.forEach(function(tagName){
+		$spice.fn[tagName] = tag(tagName)
+	})
+
+	function tag(tagName){
+		return function(){
+			var tag = document.createElement(tagName)
+			return this.open(tag)
+		}
+	}
+})(window.$spice)

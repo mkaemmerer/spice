@@ -19,10 +19,15 @@ module.exports = function(grunt) {
 			, vendor: 'public/*.js'
 			}
 		}
+	, watch:
+		{ files: ['src/*.js', 'spec/*.js']
+		, tasks: ['jasmine']
+		}
 	});
 
 	grunt.loadNpmTasks('grunt-contrib-uglify');
 	grunt.loadNpmTasks('grunt-contrib-jasmine');
+	grunt.loadNpmTasks('grunt-contrib-watch');
 
 	// Tasks
 	grunt.registerTask('default', ['uglify']);

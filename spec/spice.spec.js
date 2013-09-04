@@ -61,7 +61,7 @@ describe("Spice", function(){
 					.close()
 				.close()
 
-			expect(tags[0][0]).toMatchTag(expected[0])
+			expect(tags[0]).toMatchTag(expected[0])
 		})
 		
 		it("list builder", function(){
@@ -85,7 +85,7 @@ describe("Spice", function(){
 					.close()
 				.close()
 
-			expect(tags[0][0]).toMatchTag(expected[0])
+			expect(tags[0]).toMatchTag(expected[0])
 		})
 
 		it("trucated collection", function(){
@@ -115,7 +115,7 @@ describe("Spice", function(){
 					.close()
 				.close()
 
-			expect(tags[0][0]).toMatchTag(expected[0])
+			expect(tags[0]).toMatchTag(expected[0])
 		})
 	})
 })
@@ -184,7 +184,7 @@ function testCreatesTags(env){
 
 		tag
 			.call(function(){
-				var tags = this.children ? this.children() : this.map(function(tag){ return tag[0] })
+				var tags = $.isArray(this) ? $(this) : $(this).children()
 				
 				spy.call()
 				tags.forEach(function(el, i){
@@ -210,7 +210,7 @@ function testChangingTag(env, has_data){
 			.text("hello world")
 		.close()
 
-		tag.call(function(){ expect(this[0]).toMatchTag(expected) })
+		tag.call(function(){ expect(this).toMatchTag(expected) })
 	})
 
 	it("can set attributes using a string", function(){
@@ -221,7 +221,7 @@ function testChangingTag(env, has_data){
 		.close()
 
 		tag
-			.call(function(){ expect(this[0]).toMatchTag(expected) })
+			.call(function(){ expect(this).toMatchTag(expected) })
 	})
 
 	it("can set the text using a function", function(){
@@ -231,7 +231,7 @@ function testChangingTag(env, has_data){
 			.text("hello world")
 		.close()
 
-		tag.call(function(){ expect(this[0]).toMatchTag(expected) })
+		tag.call(function(){ expect(this).toMatchTag(expected) })
 	})
 
 	it("can set attributes using a function", function(){
@@ -242,7 +242,7 @@ function testChangingTag(env, has_data){
 		.close()
 
 		tag
-			.call(function(){ expect(this[0]).toMatchTag(expected) })
+			.call(function(){ expect(this).toMatchTag(expected) })
 	})
 
 	if(has_data){
@@ -253,7 +253,7 @@ function testChangingTag(env, has_data){
 				.text("hello world")
 			.close()
 
-			tag.call(function(){ expect(this[0]).toMatchTag(expected) })
+			tag.call(function(){ expect(this).toMatchTag(expected) })
 		})
 
 		it("can set attributes using the current data and index", function(){
@@ -264,7 +264,7 @@ function testChangingTag(env, has_data){
 			.close()
 
 			tag
-				.call(function(){ expect(this[0]).toMatchTag(expected) })
+				.call(function(){ expect(this).toMatchTag(expected) })
 		})
 	}
 }
@@ -378,13 +378,16 @@ function testIfBranch(env, depth){
 			var before
 			  , after
 
-			parent.call(function(){ before = this.slice(0) })
+			parent.call(function(){ before = $.isArray(this) ? this.slice(0) : $(this).clone() })
 			tag
 				.div().close()
 			.close()
-			parent.call(function(){ after = this.slice(0) })
+			parent.call(function(){ after = $.isArray(this) ? this.slice(0) : $(this).clone() })
 
-			expect(before).toEqual(after)
+			if($.isArray(before))
+				expect(before).toEqual(after)
+			else
+				expect(before[0]).toMatchTag(after[0])
 		})
 
 		it("doesn't call helper functions", function(){
@@ -414,7 +417,7 @@ function testEachLoop(env, depth){
 			loop
 				.div().close()
 				.call(function(){
-					var tags = this.children ? this.children() : this.map(function(tag){ return tag[0] })
+					var tags = $.isArray(this) ? $(this) : $(this).children()
 
 					tags.forEach(function(tag){
 						expect(tag).toMatchTag(expected)
