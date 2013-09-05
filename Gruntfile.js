@@ -2,6 +2,15 @@ module.exports = function(grunt) {
 	// Project configuration.
 	grunt.initConfig(
 	{ pkg: grunt.file.readJSON('package.json')
+	, concat:
+		{ options:
+			{ separator: ";\n"
+			}
+		, build:
+			{ src: ['src/spice.js', 'src/spice.html.js']
+			, dest: 'build/<%= pkg.name%>.js'
+			}
+		}
 	, uglify:
 		{ options:
 			{ banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n'
@@ -12,7 +21,7 @@ module.exports = function(grunt) {
 			}
 		}
 	, jasmine:
-		{ src: 'src/*.js'
+		{ src: 'build/<%= pkg.name %>.js'
 		, options:
 			{ specs: 'spec/*.spec.js'
 			, helpers: 'spec/helpers/*.js'
@@ -28,8 +37,9 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-uglify');
 	grunt.loadNpmTasks('grunt-contrib-jasmine');
 	grunt.loadNpmTasks('grunt-contrib-watch');
+	grunt.loadNpmTasks('grunt-contrib-concat');
 
 	// Tasks
-	grunt.registerTask('default', ['uglify']);
+	grunt.registerTask('default', ['concat', 'uglify']);
 	grunt.registerTask('test', ['jasmine']);
 };
