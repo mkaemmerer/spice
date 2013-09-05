@@ -366,7 +366,7 @@ window.$spice =
 	           , 'p', 'param', 'pre', 'progress'                                                                                   //P
 	           , 'q'                                                                                                               //Q
 	           , 'rp', 'rt', 'ruby'                                                                                                //R
-	           , 's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup' //S
+	           , 's', 'samp', 'script', 'section', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup'           //S
 	           , 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track'                        //T
 	           , 'u', 'ul'                                                                                                         //U
 	           , 'var', 'video'                                                                                                    //V
@@ -379,6 +379,7 @@ window.$spice =
 	tags.forEach(function(tagName){
 		$spice.fn[tagName] = tag(tagName)
 	})
+	$spice.fn["selectTag"] = tag("select")
 
 	function tag(tagName){
 		return function(){
