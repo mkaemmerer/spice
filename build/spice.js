@@ -27,7 +27,7 @@ window.$spice =
 		}
 		stream.eval = function(value){
 			if(typeof value === "function")
-				return value.call(context.result(), context.data(), context.index())
+				return value.call(context.data(), context.index())
 			return value
 		}
 		stream.call = function(callback){
