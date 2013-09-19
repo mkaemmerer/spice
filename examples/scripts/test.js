@@ -1,12 +1,10 @@
 $spice.fn.myclass = function(stream, data, index){
-	stream
-		.li().attr("class", "my-class")
-			.div()
-			.close()
-		.close()
+	var div =
+		stream
+			.li().attr("class", "my-class")
+				.div()
 
-	var ret = stream.select('div')
-	return ret
+	return div.bindClose(stream)
 }
 
 var first_name = "Matt"

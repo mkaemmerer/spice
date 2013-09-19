@@ -1,11 +1,5 @@
 window.$spice = 
 (function($){
-	function $spice_mixin_close(stream, parent){
-		stream.close = function(){
-			return parent
-		}
-		return stream
-	}
 	function $spice_mixin_plugins(stream, context){
 		for(var method in $spice.fn){
 			if($spice.fn.hasOwnProperty(method) && $spice.fn[method]){
@@ -15,7 +9,9 @@ window.$spice =
 
 		function delegateMethod(method){
 			return function(){
-				return $spice.fn[method].call(stream, stream, context.data(), context.index())
+				var args = [].slice.call(arguments)
+				  , ctx  = [stream, context.data(), context.index()]
+				return $spice.fn[method].apply(stream, ctx.concat(args))
 			}
 		}
 	}
@@ -46,7 +42,7 @@ window.$spice =
 			var new_context = elementContext(content, context.data(), context.index())
 			  , new_stream  = elementStream(new_context)
 			stream.append(content)
-			return $spice_mixin_close(new_stream, stream)
+			return new_stream.bindClose(stream)
 		}
 		stream.each = function(array){
 			var streams
@@ -63,11 +59,11 @@ window.$spice =
 			})
 			new_stream = arrayStream(streams, context)
 			
-			return $spice_mixin_close(new_stream, stream)
+			return new_stream.bindClose(stream)
 		}
 		stream._if  = function(condition){
 			var new_stream = conditionalStream(stream.eval(condition), stream, context)
-			return $spice_mixin_close(new_stream, stream)
+			return new_stream.bindClose(stream)
 		}
 		
 		$spice_mixin_plugins(stream, context)
@@ -88,13 +84,6 @@ window.$spice =
 		context.index = function(){
 			return index
 		}
-
-		context.select = function(selector){
-			return buffer.reduce(function(memo, el){
-				return memo.add(el.find(selector))
-			}, $())
-		}
-		context.selectAll = context.select
 		context.push = function(content){
 			buffer.push(content)
 		}
@@ -108,18 +97,6 @@ window.$spice =
 	}
 	var topLevelStream = function(context){
 		var stream = baseStream(context)
-
-		stream.select = function(selector){
-			var selection  = context.select(selector)
-			  , streams    = selection.map(function(idx, el){
-			  		var new_context = elementContext(el, context.data(), idx)
-						return elementStream(new_context)
-					})
-			  , new_context = selection[0] ? elementContext(selection[0], context.data(), context.index()) : topLevelContext()
-			  , new_stream  = arrayStream(streams, new_context)
-
-			return $spice_mixin_close(new_stream, stream)
-		}
 
 		stream.close = function(){
 			return context.result()
@@ -143,14 +120,6 @@ window.$spice =
 			return index
 		}
 
-		context.select = function(selector){
-			return buffer.reduce(function(memo, el){
-				return memo.add($(el).find(selector))
-			}, $())
-		}
-		context.selectAll = function(selector){
-			return $element.find(selector)
-		}
 		context.push = function(content){
 			buffer.push(content)
 			$element.append(content)
@@ -181,17 +150,14 @@ window.$spice =
 	}
 	var elementStream = function(context){
 		var stream = baseStream(context)
+		  , parent
 
-		stream.select = function(selector){
-			var selection  = context.select(selector)
-			  , streams    = selection.map(function(idx, el){
-			  		var new_context = elementContext(el, context.data(), context.index())
-						return elementStream(new_context)
-					}).get()
-			  , new_context = selection[0] ? elementContext(selection[0], context.data(), context.index()) : topLevelContext()
-			  , new_stream  = arrayStream(streams, new_context)
-
-			return $spice_mixin_close(new_stream, stream)
+		stream.bindClose = function(p){
+			parent = p
+			return stream
+		}
+		stream.close = function(){
+			return parent
 		}
 
 		stream.text = function(text){
@@ -221,17 +187,7 @@ window.$spice =
 	//EACH
 	var arrayStream = function(streams, context){
 		var stream = {}
-
-		stream.select = function(selector){
-			var ss = streams.map(function(s, i){
-						return s.select(selector)
-					})
-			  , selection   = context.selectAll(selector)
-			  , new_context = selection[0] ? elementContext(selection[0], context.data(), context.index()) : topLevelContext()
-			  , new_stream  = arrayStream(ss, new_context)
-
-			return $spice_mixin_close(new_stream, stream)
-		}
+		  , parent
 
 		stream.open = function(content){
 			var ss = streams.map(function(s){
@@ -241,7 +197,15 @@ window.$spice =
 			  , new_context = elementContext(content, context.data(), context.index())
 			  , new_stream  = arrayStream(ss, new_context)
 
-			return $spice_mixin_close(new_stream, stream)
+			return new_stream.bindClose(stream)
+		}
+
+		stream.bindClose = function(p){
+			parent = p
+			return stream
+		}
+		stream.close = function(){
+			return parent
 		}
 
 		var methods = ["each", "_if"]
@@ -276,7 +240,8 @@ window.$spice =
 							return s[method].apply(s, args)
 						})
 				  , new_stream = arrayStream(ss, context)
-				return $spice_mixin_close(new_stream, stream)
+
+				return new_stream.bindClose(stream)
 			}
 		}
 
@@ -289,48 +254,58 @@ window.$spice =
 	var nullStream = function(context){
 		return arrayStream([], context)
 	}
-	var delegateStream = function(parent, context){
+	var delegateStream = function(original, context){
 		var stream = {}
+		  , parent
 
-		var methods = ["select", "each", "open", "append"]
+		var methods = ["each", "open", "append"]
 		methods.forEach(function(method){
 			stream[method] = function(){
-				var new_stream = parent[method].apply(parent, arguments)
-				return $spice_mixin_close(new_stream, stream)
+				var new_stream = original[method].apply(original, arguments)
+				return new_stream.bindClose(stream)
 			}
 		})
 
 		var mutators = ["data", "call"]
 		mutators.forEach(function(method){
 			stream[method] = function(){
-				parent[method].apply(parent, arguments)
+				original[method].apply(original, arguments)
 				return stream
 			}
 		})
 
+		stream.bindClose = function(p){
+			parent = p
+			return stream
+		}
+		stream.close = function(){
+			return parent
+		}
+
 		stream.eval = function(){
-			return parent.eval.apply(parent, arguments)
+			return original.eval.apply(original, arguments)
 		}
 
 		stream._if = function(condition){
 			var new_stream = conditionalStream(stream.eval(condition), stream, context)
-			return $spice_mixin_close(new_stream, stream)
+			return new_stream.bindClose(stream)
 		}
 
 		return stream
 	}
-	var conditionalStream = function(condition, parent, context){
-		var true_stream  = condition ? delegateStream(parent, context) : nullStream(context)
-		  , false_stream = condition ? nullStream(context) : delegateStream(parent, context)
+	var conditionalStream = function(condition, original, context){
+		var true_stream  = condition ? delegateStream(original, context) : nullStream(context)
+		  , false_stream = condition ? nullStream(context) : delegateStream(original, context)
+		  , parent
 
 		$spice_mixin_plugins(true_stream, context)
 		$spice_mixin_plugins(false_stream, context)
 
 		true_stream._else = function(){
-			return $spice_mixin_close(false_stream, parent)
+			return false_stream.bindClose(original)
 		}
 
-		return true_stream
+		return true_stream.bindClose(original)
 	}
 
 	$spice = function(element){
@@ -346,8 +321,9 @@ window.$spice =
 
 	return $spice
 })(window.$);
-//Register HTML tags
+//Register HTML tags and attributes
 (function($spice){
+	//Tags
 	var tags = [ 'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio'                                                       //A
 	           , 'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br'                                                             //B
 	           , 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup'                                                            //C
@@ -366,7 +342,7 @@ window.$spice =
 	           , 'p', 'param', 'pre', 'progress'                                                                                   //P
 	           , 'q'                                                                                                               //Q
 	           , 'rp', 'rt', 'ruby'                                                                                                //R
-	           , 's', 'samp', 'script', 'section', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup'           //S
+	           , 's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup' //S
 	           , 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track'                        //T
 	           , 'u', 'ul'                                                                                                         //U
 	           , 'var', 'video'                                                                                                    //V
@@ -379,12 +355,26 @@ window.$spice =
 	tags.forEach(function(tagName){
 		$spice.fn[tagName] = tag(tagName)
 	})
-	$spice.fn["selectTag"] = tag("select")
 
 	function tag(tagName){
 		return function(){
 			var tag = document.createElement(tagName)
 			return this.open(tag)
+		}
+	}
+
+
+	//Attributes
+	var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ]
+
+	attrs.forEach(function(attrName){
+		$spice.fn[attrName] = attribute(attrName)
+	})
+	$spice.fn["_class"] = attribute("class")
+
+	function attribute(attrName){
+		return function(stream, d, i, value){
+			return this.attr(attrName, value);
 		}
 	}
 })(window.$spice)

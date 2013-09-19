@@ -1,5 +1,6 @@
-//Register HTML tags
+//Register HTML tags and attributes
 (function($spice){
+	//Tags
 	var tags = [ 'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio'                                                       //A
 	           , 'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br'                                                             //B
 	           , 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup'                                                            //C
@@ -18,7 +19,7 @@
 	           , 'p', 'param', 'pre', 'progress'                                                                                   //P
 	           , 'q'                                                                                                               //Q
 	           , 'rp', 'rt', 'ruby'                                                                                                //R
-	           , 's', 'samp', 'script', 'section', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup'           //S
+	           , 's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup' //S
 	           , 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track'                        //T
 	           , 'u', 'ul'                                                                                                         //U
 	           , 'var', 'video'                                                                                                    //V
@@ -31,12 +32,26 @@
 	tags.forEach(function(tagName){
 		$spice.fn[tagName] = tag(tagName)
 	})
-	$spice.fn["selectTag"] = tag("select")
 
 	function tag(tagName){
 		return function(){
 			var tag = document.createElement(tagName)
 			return this.open(tag)
+		}
+	}
+
+
+	//Attributes
+	var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ]
+
+	attrs.forEach(function(attrName){
+		$spice.fn[attrName] = attribute(attrName)
+	})
+	$spice.fn["_class"] = attribute("class")
+
+	function attribute(attrName){
+		return function(stream, d, i, value){
+			return this.attr(attrName, value);
 		}
 	}
 })(window.$spice)

@@ -432,5 +432,3 @@ function testEachLoop(env, depth){
 		}
 	})
 }
-function testSelection(parent){
-}
