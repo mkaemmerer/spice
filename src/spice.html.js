@@ -50,7 +50,7 @@
 	$spice.fn["_class"] = attribute("class")
 
 	function attribute(attrName){
-		return function(value){
+		return function(stream, d, i, value){
 			return this.attr(attrName, value);
 		}
 	}

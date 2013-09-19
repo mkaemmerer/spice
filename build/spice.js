@@ -9,7 +9,9 @@ window.$spice =
 
 		function delegateMethod(method){
 			return function(){
-				return $spice.fn[method].call(stream, stream, context.data(), context.index())
+				var args = [].slice.call(arguments)
+				  , ctx  = [stream, context.data(), context.index()]
+				return $spice.fn[method].apply(stream, ctx.concat(args))
 			}
 		}
 	}
@@ -371,7 +373,7 @@ window.$spice =
 	$spice.fn["_class"] = attribute("class")
 
 	function attribute(attrName){
-		return function(value){
+		return function(stream, d, i, value){
 			return this.attr(attrName, value);
 		}
 	}

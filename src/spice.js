@@ -9,7 +9,9 @@ window.$spice =
 
 		function delegateMethod(method){
 			return function(){
-				return $spice.fn[method].call(stream, stream, context.data(), context.index())
+				var args = [].slice.call(arguments)
+				  , ctx  = [stream, context.data(), context.index()]
+				return $spice.fn[method].apply(stream, ctx.concat(args))
 			}
 		}
 	}
@@ -25,7 +27,7 @@ window.$spice =
 		}
 		stream.eval = function(value){
 			if(typeof value === "function")
-				return value.call(context.result(), context.data(), context.index())
+				return value.call(context.data(), context.index())
 			return value
 		}
 		stream.call = function(callback){
