@@ -217,7 +217,7 @@ window.$spice =
 
 		stream.selectAll = function(selector){
 			var ss = streams.map(function(s){
-					return s.select(selector)
+					return s.selectAll(selector)
 				})
 			  , new_context = elementContext(null, context.data(), context.index())
 				, new_stream = arrayStream(ss, new_context)
