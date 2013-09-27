@@ -25,13 +25,17 @@ window.$spice =
 			context.data(d)
 			return stream
 		}
-		stream.eval = function(value){
-			if(typeof value === "function")
-				return value.call(stream, context.data(), context.index())
-			return value
-		}
 		stream.call = function(callback){
 			callback.call(context.result(), context.data(), context.index())
+			return stream
+		}
+		stream.eval = function(value){
+			if(typeof value === "function")
+				return value(context.data(), context.index())
+			return value
+		}
+		stream.tap = function(callback){
+			callback(stream)
 			return stream
 		}
 		stream.append = function(content){
@@ -42,6 +46,15 @@ window.$spice =
 			var new_context = elementContext(content, context.data(), context.index())
 			  , new_stream  = elementStream(new_context)
 			stream.append(content)
+			return new_stream.bindClose(stream)
+		}
+		stream.selectAll = function(selector){
+			var els = context.select(selector)
+			  , ss  = els.map(function(el, i){
+			  	return elementStream(elementContext(el, context.data(), i))
+			  })
+			  , new_stream = arrayStream(ss, elementContext(null, context.data()))
+
 			return new_stream.bindClose(stream)
 		}
 		stream.each = function(array){
@@ -90,6 +103,15 @@ window.$spice =
 		context.result = function(){
 			return buffer
 		}
+		context.select = function(selector){
+			var selections = buffer.map(function(el){
+					return $(el).find(selector).toArray()
+				})
+			
+			return selections.reduce(function(memo,selection){
+				return memo.concat(selection)
+			}, [])
+		}
 
 		context.methods = {}
 
@@ -127,6 +149,9 @@ window.$spice =
 		context.result = function(){
 			return element
 		}
+		context.select = function(selector){
+			return $element.find(selector).toArray()
+		}
 
 		context.methods = {
 			  text: function(text){
@@ -151,6 +176,7 @@ window.$spice =
 	var elementStream = function(context){
 		var stream = baseStream(context)
 		  , parent
+
 
 		stream.bindClose = function(p){
 			parent = p
@@ -188,6 +214,26 @@ window.$spice =
 	var arrayStream = function(streams, context){
 		var stream = {}
 		  , parent
+
+		stream.selectAll = function(selector){
+			var ss = streams.map(function(s){
+					return s.select(selector)
+				})
+			  , new_context = elementContext(null, context.data(), context.index())
+				, new_stream = arrayStream(ss, new_context)
+
+			return new_stream
+		}
+
+		stream.eval = function(value){
+			if(typeof value === "function")
+				return value(context.data(), context.index())
+			return value
+		}
+		stream.tap = function(callback){
+			callback(stream)
+			return stream
+		}
 
 		stream.open = function(content){
 			var ss = streams.map(function(s){
@@ -282,8 +328,14 @@ window.$spice =
 			return parent
 		}
 
-		stream.eval = function(){
-			return original.eval.apply(original, arguments)
+		stream.eval = function(value){
+			if(typeof value === "function")
+				return value(context.data(), context.index())
+			return value
+		}
+		stream.tap = function(callback){
+			callback(stream)
+			return stream
 		}
 
 		stream._if = function(condition){
@@ -310,7 +362,7 @@ window.$spice =
 
 	$spice = function(element){
 		if(element)
-			return topLevelStream(elementContext(element))
+			return elementStream(elementContext(element))
 		return topLevelStream(topLevelContext())
 	}
 	$spice.select = function(selector){
