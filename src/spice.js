@@ -1,27 +1,27 @@
 window.$spice = 
 (function($){
 	function $spice_mixin_plugins(stream, context){
-		for(var method in $spice.tags){
-			if($spice.tags.hasOwnProperty(method) && $spice.tags[method]){
-				stream[method] = delegateMethod($spice.tags[method])
+		for(var fn in $spice.tags){
+			if($spice.tags.hasOwnProperty(fn) && $spice.tags[fn]){
+				stream[fn] = delegateTag($spice.tags[fn])
 			}
 		}
 
-		for(var method in $spice.modifiers){
-			if($spice.modifiers.hasOwnProperty(method) && $spice.modifiers[method]){
-				stream[method] = delegateMethod($spice.modifiers[method])
+		for(var fn in $spice.modifiers){
+			if($spice.modifiers.hasOwnProperty(fn) && $spice.modifiers[fn]){
+				stream[fn] = delegateMethod($spice.modifiers[fn])
 			}	
 		}
 
-		function delegateMethod(method){
+		function delegateTag(tag){
 			return function(){
 				var args = [].slice.call(arguments)
 				  , ctx  = [stream, context.data(), context.index()]
-				return method.apply(stream, ctx.concat(args))
+				return tag.apply(stream, ctx.concat(args))
 			}
 		}
 
-		function delegateModifier(method){
+		function delegateMethod(method){
 			return function(){
 				var args = [].slice.call(arguments)
 				  , ctx  = [stream, context.data(), context.index()]
@@ -285,14 +285,14 @@ window.$spice =
 			}
 		}
 		//PLUGINS
-		for(var method in $spice.tags){
-			if($spice.tags.hasOwnProperty(method) && $spice.tags[method]){
-				stream[method] = delegateTag(method)
-			}
-		}
 		for(var method in $spice.modifiers){
 			if($spice.modifiers.hasOwnProperty(method) && $spice.modifiers[method]){
 				stream[method] = delegateModifier(method)
+			}
+		}
+		for(var method in $spice.tags){
+			if($spice.tags.hasOwnProperty(method) && $spice.tags[method]){
+				stream[method] = delegateTag($spice.tags[method])
 			}
 		}
 
@@ -316,15 +316,11 @@ window.$spice =
 				return new_stream.bindClose(stream)
 			}
 		}
-		function delegateTag(method){
+		function delegateTag(tag){
 			return function(){
-				var args = arguments
-				  , ss = streams.map(function(s){
-							return s[method].apply(s, args)
-						})
-				  , new_stream = arrayStream(ss, elementContext(null, context.data(), context.index()))
-
-				return new_stream.bindClose(stream)
+				var args = [].slice.call(arguments)
+				  , ctx  = [stream, context.data(), context.index()]
+				return tag.apply(stream, ctx.concat(args))
 			}
 		}
 
