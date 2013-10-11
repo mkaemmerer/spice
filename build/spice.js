@@ -1,17 +1,32 @@
 window.$spice = 
 (function($){
 	function $spice_mixin_plugins(stream, context){
-		for(var method in $spice.fn){
-			if($spice.fn.hasOwnProperty(method) && $spice.fn[method]){
-				stream[method] = delegateMethod(method)
+		for(var method in $spice.tags){
+			if($spice.tags.hasOwnProperty(method) && $spice.tags[method]){
+				stream[method] = delegateMethod($spice.tags[method])
 			}
+		}
+
+		for(var method in $spice.modifiers){
+			if($spice.modifiers.hasOwnProperty(method) && $spice.modifiers[method]){
+				stream[method] = delegateMethod($spice.modifiers[method])
+			}	
 		}
 
 		function delegateMethod(method){
 			return function(){
 				var args = [].slice.call(arguments)
 				  , ctx  = [stream, context.data(), context.index()]
-				return $spice.fn[method].apply(stream, ctx.concat(args))
+				return method.apply(stream, ctx.concat(args))
+			}
+		}
+
+		function delegateModifier(method){
+			return function(){
+				var args = [].slice.call(arguments)
+				  , ctx  = [stream, context.data(), context.index()]
+				method.apply(stream, ctx.concat(args))
+				return stream
 			}
 		}
 	}
@@ -258,19 +273,30 @@ window.$spice =
 		methods.forEach(function(method){
 			stream[method] = delegateMethod(method)
 		})
-		var mutators = ["call", "append"]
-		mutators.forEach(function(method){
-			stream[method] = delegateMutator(method)
+		var modifiers = ["call", "append"]
+		modifiers.forEach(function(method){
+			stream[method] = delegateModifier(method)
 		})
 
 		//CONTEXT HELPERS
 		for(var method in context.methods){
 			if(context.methods.hasOwnProperty(method)){
-				stream[method] = delegateMutator(method)
+				stream[method] = delegateModifier(method)
+			}
+		}
+		//PLUGINS
+		for(var method in $spice.tags){
+			if($spice.tags.hasOwnProperty(method) && $spice.tags[method]){
+				stream[method] = delegateTag(method)
+			}
+		}
+		for(var method in $spice.modifiers){
+			if($spice.modifiers.hasOwnProperty(method) && $spice.modifiers[method]){
+				stream[method] = delegateModifier(method)
 			}
 		}
 
-		function delegateMutator(method){
+		function delegateModifier(method){
 			return function(){
 				var args = arguments
 				streams.forEach(function(s){
@@ -290,8 +316,17 @@ window.$spice =
 				return new_stream.bindClose(stream)
 			}
 		}
+		function delegateTag(method){
+			return function(){
+				var args = arguments
+				  , ss = streams.map(function(s){
+							return s[method].apply(s, args)
+						})
+				  , new_stream = arrayStream(ss, elementContext(null, context.data(), context.index()))
 
-		$spice_mixin_plugins(stream, context)
+				return new_stream.bindClose(stream)
+			}
+		}
 
 		return stream
 	}
@@ -369,7 +404,8 @@ window.$spice =
 		var element = $(selector)[0]
 		return topLevelStream(elementContext(element))
 	}	
-	$spice.fn = {}
+	$spice.tags = {}
+	$spice.modifiers = {}
 
 	return $spice
 })(window.$);
@@ -405,7 +441,7 @@ window.$spice =
 	           ]
 
 	tags.forEach(function(tagName){
-		$spice.fn[tagName] = tag(tagName)
+		$spice.tags[tagName] = tag(tagName)
 	})
 
 	function tag(tagName){
@@ -420,9 +456,9 @@ window.$spice =
 	var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ]
 
 	attrs.forEach(function(attrName){
-		$spice.fn[attrName] = attribute(attrName)
+		$spice.modifiers[attrName] = attribute(attrName)
 	})
-	$spice.fn["_class"] = attribute("class")
+	$spice.modifiers["_class"] = attribute("class")
 
 	function attribute(attrName){
 		return function(stream, d, i, value){

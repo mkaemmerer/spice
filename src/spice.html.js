@@ -30,7 +30,7 @@
 	           ]
 
 	tags.forEach(function(tagName){
-		$spice.fn[tagName] = tag(tagName)
+		$spice.tags[tagName] = tag(tagName)
 	})
 
 	function tag(tagName){
@@ -45,9 +45,9 @@
 	var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ]
 
 	attrs.forEach(function(attrName){
-		$spice.fn[attrName] = attribute(attrName)
+		$spice.modifiers[attrName] = attribute(attrName)
 	})
-	$spice.fn["_class"] = attribute("class")
+	$spice.modifiers["_class"] = attribute("class")
 
 	function attribute(attrName){
 		return function(stream, d, i, value){
