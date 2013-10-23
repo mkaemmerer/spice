@@ -268,8 +268,25 @@ window.$spice =
 		stream.close = function(){
 			return parent
 		}
+		stream._if = function(condition){
+			var ss = streams.map(function(s){
+						return s._if(condition)
+					})
+		    , new_stream = arrayStream(ss, context)
 
-		var methods = ["each", "_if"]
+			new_stream._else = function(){
+				var false_ss = ss.map(function(s){
+					return s._else()
+				})
+				, false_stream = arrayStream(false_ss, context)
+
+				return false_stream.bindClose(stream)
+			}
+
+			return new_stream.bindClose(stream)
+		}
+
+		var methods = ["each"]
 		methods.forEach(function(method){
 			stream[method] = delegateMethod(method)
 		})

@@ -13,6 +13,7 @@ describe("Spice", function(){
 
 		testInterface(env)
 		testCreatesTags(env)
+		testCreatesMultipleTags(env)
 		testElement(env, 2)
 		testIfBranch(env, 2)
 		testEachLoop(env, 2)
@@ -30,6 +31,7 @@ describe("Spice", function(){
 
 		testInterface(env)
 		testCreatesTags(env)
+		testCreatesMultipleTags(env)
 		testElement(env, 2)
 		testIfBranch(env, 2)
 		testEachLoop(env, 2)
@@ -173,6 +175,31 @@ function testCreatesTags(env){
 	})
 
 	it("creates tags", function(){
+		var expected = $('<p></p>')
+		  , spy      = jasmine.createSpy("callSpy")
+
+		tag
+			.p().close()
+		.close()
+
+		tag
+			.call(function(){
+				var tags = $.isArray(this) ? $(this) : $(this).children()
+				spy.call()
+				expect(tags[0]).toMatchTag(expected[0])
+			})
+
+		expect(spy).toHaveBeenCalled()
+	})
+}
+function testCreatesMultipleTags(env){
+	var tag
+
+	beforeEach(function(){
+		tag = env.tag
+	})
+
+	it("creates tags", function(){
 		var expected = $('<p></p><span></span><ul></ul>')
 		  , spy      = jasmine.createSpy("callSpy")
 
@@ -194,7 +221,7 @@ function testCreatesTags(env){
 			})
 
 		expect(spy).toHaveBeenCalled()
-	})
+	})	
 }
 function testChangingTag(env, has_data){
 	var tag
@@ -283,6 +310,7 @@ function testElement(env, depth, has_data){
 
 		testInterface(sub_env)
 		testCreatesTags(sub_env)
+		testCreatesMultipleTags(sub_env)
 		testChangingTag(sub_env, has_data)
 		testCallingHelper(sub_env)
 		
@@ -429,6 +457,7 @@ function testEachLoop(env, depth){
 
 		if(depth-1){
 			testElement(sub_env, depth-1, true)
+			testIfBranch(sub_env, depth-1)
 		}
 	})
 }
