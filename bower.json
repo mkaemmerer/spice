@@ -16,5 +16,8 @@
   "dependencies": {
     "bacon": "~0.7.6",
     "jquery": "~2.1.0"
+  },
+  "devDependencies": {
+    "foundation": "~5.2.0"
   }
 }

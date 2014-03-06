@@ -1,12 +1,15 @@
 //Extensions
 (function($spice, $, Bacon){
-	function withProperties = function(callback){
+	'use strict';
+
+	function withProperties(callback){
 		var stream = this;
 		var props  = [].slice.call(arguments, 1);
 		
-		Bacon.zipWith(props.map(stream.eval.bind(stream)), function(){
-			callback.apply(arguments);
-		});
+		Bacon.zipAsArray(props.map(stream.eval.bind(stream)))
+			.onValue(function(array){
+				callback.apply(this, array);
+			});
 
 		return stream;
 	}
@@ -52,17 +55,17 @@
 		var el     = this;
 		var stream = $spice(this).data(d).index(i);
 
-		withProperties.call(stream, function(value){
+		withProperties.call(stream, function(text){
 			$(el).append(text);
-		});
+		}, text);
 	};
 	$spice.modifiers.addClass = function(d, i, class_name){
 		var el     = this;
 		var stream = $spice(this).data(d).index(i);
 
-		withProperties.call(stream, function(value){
+		withProperties.call(stream, function(class_name){
 			$(el).addClass(class_name);
-		});
+		}, class_name);
 	};
 
 	//Attributes
@@ -71,7 +74,8 @@
 	attrs.forEach(function(attrName){
 		$spice.modifiers[attrName] = attribute(attrName);
 	});
-	$spice.modifiers["_class"] = attribute("class");
+	$spice.modifiers.$class = attribute("class");
+	$spice.modifiers._class = $spice.modifiers.$class;
 
 	function attribute(attrName){
 		return function(d, i, value){
