@@ -7,6 +7,7 @@
 
 	var body = $('body');
 	$spice(body[0])
+		//Navigation
 		.nav().$class('top-bar')
 			//Left nav section
 			.ul().$class('title-area')
@@ -67,23 +68,22 @@
 				.p().text(lorem2).close()
 			.close()
 		.close()
-		//3 column section
+		//Grid section
 		.section()
 			.div().$class('row')
 				.div().$class('large-4 columns')
-					.h3().text('H3 - Hello, World').close()
+					.h4().text('H4 - Hello, World').close()
 					.p().text(lorem1).close()
 				.close()
 				.div().$class('large-4 columns')
-					.h3().text('H3 - Hello, World').close()
+					.h4().text('H4 - Hello, World').close()
 					.p().text(lorem2).close()
 				.close()
 				.div().$class('large-4 columns')
-					.h3().text('H3 - Hello, World').close()
+					.h4().text('H4 - Hello, World').close()
 					.p().text(lorem3).close()
 				.close()
 			.close()
-		.close()
-
+		.close();
 
 })(window.$spice, window.$);
