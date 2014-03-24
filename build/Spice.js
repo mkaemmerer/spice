@@ -40,39 +40,52 @@
   function BaseStream(){
   }
   BaseStream.prototype._init = function(){
-    if(!$spice){ return; }
+    this._tags      = {};
+    this._modifiers = {};
+  };
+  /**
+   * Register a function as a tag writer for this stream
+   */
+  BaseStream.prototype.defineTag = function(name, tag){
+    this[name] = function(){
+      var args = [].slice.call(arguments),
+          ctx  = [this._context.data, this._context.index];
+      return tag.apply(this, ctx.concat(args)).parent(this);
+    };
+    this._tags[name] = tag;
 
-    for(var fn in $spice.tags){
-      if($spice.tags.hasOwnProperty(fn) && $spice.tags[fn]){
-        this[fn] = delegateTag($spice.tags[fn]);
+    return this;
+  };
+  /**
+   * Register a function as a attribute modifier for this stream
+   */
+  BaseStream.prototype.defineModifier = function(name, modifier){
+    this[name] = function(){
+      var args = [].slice.call(arguments);
+      this.call(function(d,i){
+        var ctx  = [d,i];
+        modifier.apply(this, ctx.concat(args));
+      });
+      return this;
+    };
+    this._modifiers[name] = modifier;
+
+    return this;
+  };
+  BaseStream.prototype._defineAll = function(tags, modifiers){
+    for(var fn in tags){
+      if(tags.hasOwnProperty(fn) && tags[fn]){
+        this.defineTag(fn, tags[fn]);
       }
     }
 
-    for(fn in $spice.modifiers){
-      if($spice.modifiers.hasOwnProperty(fn) && $spice.modifiers[fn]){
-        this[fn] = delegateModifier($spice.modifiers[fn]);
+    for(fn in modifiers){
+      if(modifiers.hasOwnProperty(fn) && modifiers[fn]){
+        this.defineModifier(fn, modifiers[fn]);
       }
     }
-    
-    function delegateTag(tag){
-      return function(){
-        var args = [].slice.call(arguments),
-            ctx  = [this._context.data, this._context.index];
-        return tag.apply(this, ctx.concat(args)).parent(this);
-      };
-    }
-    function delegateModifier(modifier){
-      return function(){
-        var args   = [].slice.call(arguments);
 
-        this.call(function(d,i){
-          var ctx  = [d,i];
-          modifier.apply(this, ctx.concat(args));
-        });
-
-        return this;
-      };
-    }
+    return this;
   };
   
   // ----- Control flow -------------------------------------------------------
@@ -85,7 +98,7 @@
    * Make edits to the stream when the condition is true
    */
   BaseStream.prototype.$if  = function(condition){
-    return new ConditionalStream(this, this.eval(condition), this._context);
+    return new ConditionalStream(this, this.eval(condition), this._context).parent(this);
   };
   BaseStream.prototype._if = BaseStream.prototype.$if;
   /**
@@ -151,6 +164,7 @@
    */
   BaseStream.prototype.parent = function(parent){
     this._parent = parent;
+    this._defineAll(parent._tags, parent._modifiers);
     return this;
   };
   BaseStream.prototype.bindClose = BaseStream.prototype.parent;
@@ -190,8 +204,8 @@
         var context = new Context(d,i);
         var element = stream._el;
         var cursor  = eachCursor.clone();
-        return new ElementStream(element, context, cursor);
-      }), stream._context);
+        return new ElementStream(element, context, cursor).parent(stream);
+      }), stream._context).parent(stream);
     }), stream._context).parent(stream);
   };
   // ----- Utility ------------------------------------------------------------
@@ -235,7 +249,7 @@
     var stream = this;
     return new ArrayStream(this._streams.map(function(s){
       var clone = $(content).clone()[0];
-      return s.open(clone).parent(stream);
+      return s.open(clone);
     }), this._context).parent(this);
   };
   ArrayStream.prototype.append = function(content){
@@ -318,7 +332,10 @@
   // EXPORTS
   /////////////////////////////////////////////////////////////////////////////
   var $spice = function(element){
-    return new ElementStream(element, new Context());
+    var stream = new ElementStream(element, new Context())
+      ._defineAll($spice.tags, $spice.modifiers);
+
+    return stream;
   };
   $spice.select = function(selector){
     //TODO
