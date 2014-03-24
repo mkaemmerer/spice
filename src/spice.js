@@ -22,8 +22,11 @@
   function Cursor(){
     this._$el = $(document.createElement('script'));
   }
-  Cursor.prototype.attachTo = function(el){
+  Cursor.prototype.open  = function(el){
     this._$el.appendTo(el);
+  };
+  Cursor.prototype.close = function(){
+    this._$el.remove();
   };
   Cursor.prototype.write = function(content){
     this._$el.before(content);
@@ -61,10 +64,11 @@
    */
   BaseStream.prototype.defineModifier = function(name, modifier){
     this[name] = function(){
-      var args = [].slice.call(arguments);
+      var args   = [].slice.call(arguments);
+      var stream = this;
       this.call(function(d,i){
-        var ctx  = [d,i];
-        modifier.apply(this, ctx.concat(args));
+        var ctx  = [this, d,i];
+        modifier.apply(stream, ctx.concat(args));
       });
       return this;
     };
@@ -190,7 +194,7 @@
   ElementStream.prototype._init = function(){
     if(!this._cursor){
       this._cursor = new Cursor();
-      this._cursor.attachTo(this._el);
+      this._cursor.open(this._el);
     }
     BaseStream.prototype._init.call(this);
   };
@@ -246,7 +250,6 @@
   };
   // ----- Builder Methods -----------------------------------------------------
   ArrayStream.prototype.open = function(content){
-    var stream = this;
     return new ArrayStream(this._streams.map(function(s){
       var clone = $(content).clone()[0];
       return s.open(clone);

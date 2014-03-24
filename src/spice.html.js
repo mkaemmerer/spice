@@ -17,8 +17,8 @@
   /////////////////////////////////////////////////////////////////////////////
   // MODIFIERS
   /////////////////////////////////////////////////////////////////////////////
-  $spice.modifiers.attrs = function(d, i, attr_map){
-    var stream = $spice(this).data(d).index(i);
+  $spice.modifiers.attrs = function(el, d, i, attr_map){
+    var stream = this;
 
     for(var attr_name in attr_map){
       if(attr_map.hasOwnProperty(attr_name) && attr_map[attr_name]){
@@ -26,13 +26,10 @@
       }
     }
   };
-  $spice.modifiers.classed = function(d, i, class_map){
-    var el     = this;
-    var stream = $spice(this).data(d).index(i);
-
+  $spice.modifiers.classed = function(el, d, i, class_map){
     for(var class_name in class_map){
       if(class_map.hasOwnProperty(class_name) && class_map[class_name]){
-        withProperties.call(stream, setClass, class_name, class_map[class_name]);
+        withProperties.call(this, setClass, class_name, class_map[class_name]);
       }
     }
     function setClass(name, on){
@@ -43,27 +40,18 @@
       }
     }
   };
-  $spice.modifiers.attr = function(d, i, attr_name, attr_value){
-    var el     = this;
-    var stream = $spice(this).data(d).index(i);
-
-    withProperties.call(stream, function(value){
+  $spice.modifiers.attr = function(el, d, i, attr_name, attr_value){
+    withProperties.call(this, function(value){
       $(el).attr(attr_name, value);
     }, attr_value);
   };
-  $spice.modifiers.text = function(d, i, text){
-    var el     = this;
-    var stream = $spice(this).data(d).index(i);
-
-    withProperties.call(stream, function(text){
+  $spice.modifiers.text = function(el, d, i, text){
+    withProperties.call(this, function(text){
       $(el).append(text);
     }, text);
   };
-  $spice.modifiers.addClass = function(d, i, class_name){
-    var el     = this;
-    var stream = $spice(this).data(d).index(i);
-
-    withProperties.call(stream, function(class_name){
+  $spice.modifiers.addClass = function(el, d, i, class_name){
+    withProperties.call(this, function(class_name){
       $(el).addClass(class_name);
     }, class_name);
   };
@@ -78,8 +66,8 @@
   $spice.modifiers._class = $spice.modifiers.$class;
 
   function attribute(attrName){
-    return function(d, i, value){
-      return $spice(this).data(d).index(i).attr(attrName, value);
+    return function(el, d, i, value){
+      return this.attr(attrName, value);
     };
   }
 
