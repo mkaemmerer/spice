@@ -46,8 +46,11 @@
     }, attr_value);
   };
   $spice.modifiers.text = function(el, d, i, text){
+    var textNode = document.createTextNode('');
+    this.append(textNode);
+
     withProperties.call(this, function(text){
-      $(el).append(text);
+      textNode.textContent = text;
     }, text);
   };
   $spice.modifiers.addClass = function(el, d, i, class_name){
