@@ -66,9 +66,9 @@
     this[name] = function(){
       var args   = [].slice.call(arguments);
       var stream = this;
-      this.call(function(d,i){
-        var ctx  = [this, d,i];
-        modifier.apply(stream, ctx.concat(args));
+      this.call(function(el){
+        var ctx  = [el];
+        modifier.apply(this, ctx.concat(args));
       });
       return this;
     };
@@ -214,7 +214,7 @@
   };
   // ----- Utility ------------------------------------------------------------
   ElementStream.prototype.call = function(callback){
-    callback.call(this._el, this._context.data, this._context.index);
+    callback.call(this, this._el, this._context.data, this._context.index);
   };
   // ----- Builder Methods -----------------------------------------------------
   ElementStream.prototype.open = function(content){
