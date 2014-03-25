@@ -65,7 +65,6 @@
   BaseStream.prototype.defineModifier = function(name, modifier){
     this[name] = function(){
       var args   = [].slice.call(arguments);
-      var stream = this;
       this.call(function(el){
         var ctx  = [el];
         modifier.apply(this, ctx.concat(args));
@@ -341,7 +340,14 @@
     return stream;
   };
   $spice.select = function(selector){
-    //TODO
+    var streams = $(selector).toArray()
+      .map(function(el){
+        return $spice(el);
+      });
+    var arrayStream = new ArrayStream(streams, new Context())
+      ._defineAll($spice.tags, $spice.modifiers);
+
+    return arrayStream;
   };
   $spice.modifiers = {};
   $spice.tags      = {};

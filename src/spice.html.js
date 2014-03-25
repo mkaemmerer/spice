@@ -3,6 +3,7 @@
   'use strict';
 
   function withProperties(callback){
+    /* jshint validthis:true */
     var stream = this;
     var props  = [].slice.call(arguments, 1);
     
