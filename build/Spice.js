@@ -51,9 +51,8 @@
    */
   BaseStream.prototype.defineTag = function(name, tag){
     this[name] = function(){
-      var args = [].slice.call(arguments),
-          ctx  = [this._context.data, this._context.index];
-      return tag.apply(this, ctx.concat(args)).parent(this);
+      var args = [].slice.call(arguments);
+      return tag.apply(this, args).parent(this);
     };
     this._tags[name] = tag;
 
@@ -214,6 +213,7 @@
   // ----- Utility ------------------------------------------------------------
   ElementStream.prototype.call = function(callback){
     callback.call(this, this._el, this._context.data, this._context.index);
+    return this;
   };
   // ----- Builder Methods -----------------------------------------------------
   ElementStream.prototype.open = function(content){
@@ -361,6 +361,7 @@
   'use strict';
 
   function withProperties(callback){
+    /* jshint validthis:true */
     var stream = this;
     var props  = [].slice.call(arguments, 1);
     
