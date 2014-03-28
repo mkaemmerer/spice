@@ -20,7 +20,7 @@
   // CURSOR
   /////////////////////////////////////////////////////////////////////////////
   function Cursor(){
-    this._$el = $(document.createElement('script'));
+    this._$el = $(document.createTextNode(''));
   }
   Cursor.prototype.open  = function(el){
     this._$el.appendTo(el);
@@ -140,7 +140,7 @@
     } else if(value instanceof Bacon.Observable){
       return value;
     } else {
-      return Bacon.once(value).delay(0);
+      return Bacon.once(value);
     }
   };
   /**
@@ -195,13 +195,14 @@
       this._cursor.open(this._el);
     }
     BaseStream.prototype._init.call(this);
+    this._defineAll($spice.tags, $spice.modifiers);
   };
   // ----- Control flow -------------------------------------------------------
   ElementStream.prototype.each = function(array){
     var stream = this;
     var eachCursor = stream._cursor.clone();
     
-    return new EventedStream(this.eval(array).map(function(array){
+    return new EventedStream(this.eval(array).delay(0).map(function(array){
       return new ArrayStream(array.map(function(d,i){
         var context = new Context(d,i);
         var element = stream._el;
@@ -224,6 +225,11 @@
     this._cursor.write(content);
     return this;
   };
+  ElementStream.prototype.parent = function(parent){
+    this._parent = parent;
+    return this;
+  };
+  ElementStream.prototype.bindClose = ElementStream.prototype.parent;
 
 
 
