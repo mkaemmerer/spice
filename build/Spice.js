@@ -20,7 +20,8 @@
   // CURSOR
   /////////////////////////////////////////////////////////////////////////////
   function Cursor(){
-    this._$el = $(document.createTextNode(''));
+    this._$el      = $(document.createTextNode(''));
+    this._contents = [];
   }
   Cursor.prototype.open  = function(el){
     this._$el.appendTo(el);
@@ -29,7 +30,13 @@
     this._$el.remove();
   };
   Cursor.prototype.write = function(content){
+    this._contents.push(content);
     this._$el.before(content);
+  };
+  Cursor.prototype.clear = function(){
+    this._contents.forEach(function(el){
+      $(el).remove();
+    });
   };
   Cursor.prototype.clone = function(){
     var clone = new Cursor();
@@ -105,7 +112,7 @@
   BaseStream.prototype._if = BaseStream.prototype.$if;
   /**
    * Make edits to the stream when the condition in the corresponding 'if' call
-   * is false. Only defined for _if branches
+   * is false. Only defined for $if branches
    */
   BaseStream.prototype.$else = undefined;
   
@@ -160,6 +167,10 @@
    * further editing
    */
   BaseStream.prototype.open   = abstract_method;
+  /**
+   * Remove all child elements that were created by this stream
+   */
+  BaseStream.prototype.clear  = abstract_method;
   /**
    * Sets the parent stream.
    * The parent is returned by the method 'close' for convenient chaining
@@ -217,12 +228,16 @@
     return this;
   };
   // ----- Builder Methods -----------------------------------------------------
+  ElementStream.prototype.append = function(content){
+    this._cursor.write(content);
+    return this;
+  };
   ElementStream.prototype.open = function(content){
     this.append(content);
     return new ElementStream(content, this._context).parent(this);
   };
-  ElementStream.prototype.append = function(content){
-    this._cursor.write(content);
+  ElementStream.prototype.clear = function(){
+    this._cursor.clear();
     return this;
   };
   ElementStream.prototype.parent = function(parent){
@@ -254,15 +269,21 @@
     return this;
   };
   // ----- Builder Methods -----------------------------------------------------
+  ArrayStream.prototype.append = function(content){
+    this._streams.forEach(function(s){
+      s.append(content);
+    });
+    return this;
+  };
   ArrayStream.prototype.open = function(content){
     return new ArrayStream(this._streams.map(function(s){
       var clone = $(content).clone()[0];
       return s.open(clone);
     }), this._context).parent(this);
   };
-  ArrayStream.prototype.append = function(content){
+  ArrayStream.prototype.clear = function(){
     this._streams.forEach(function(s){
-      s.append(content);
+      s.clear();
     });
     return this;
   };
@@ -280,6 +301,12 @@
   EventedStream.prototype = new BaseStream();
   EventedStream.prototype._init = function(){
     this._event.onValue(noop);
+    //Clear old streams as new ones arrive
+    this._event.slidingWindow(2)
+      .onValue(function(streams){
+        if(streams[0]){ streams[0].clear(); }
+      });
+
     BaseStream.prototype._init.call(this);
   };
   // ----- Control flow -------------------------------------------------------
@@ -302,14 +329,20 @@
     return this;
   };
   // ----- Builder Methods ----------------------------------------------------
+  EventedStream.prototype.append = function(content){
+    this._event.onValue(function(stream){
+      stream.append(content);
+    });
+    return this;
+  };
   EventedStream.prototype.open = function(content){
     return new EventedStream(this._event.map(function(stream){
       return stream.open(content);
     }), this._context).parent(this);
   };
-  EventedStream.prototype.append = function(content){
-    this._event.onValue(function(stream){
-      stream.append(content);
+  EventedStream.prototype.clear = function(){
+    this._event.take(1).onValue(function(stream){
+      stream.clear();
     });
     return this;
   };
