@@ -2,7 +2,6 @@
   'use strict';
 
   function abstract_method(){ throw 'abstract method'; }
-  function id(x){ return x; }
   function noop(){}
 
   /////////////////////////////////////////////////////////////////////////////
@@ -37,6 +36,7 @@
     this._contents.forEach(function(el){
       $(el).remove();
     });
+    this._contents = [];
   };
   Cursor.prototype.clone = function(){
     var clone = new Cursor();
@@ -106,10 +106,8 @@
   /**
    * Make edits to the stream when the condition is true
    */
-  BaseStream.prototype.$if  = function(condition){
-    return new ConditionalStream(this, this.eval(condition), this._context).parent(this);
-  };
-  BaseStream.prototype._if = BaseStream.prototype.$if;
+  BaseStream.prototype.$if  = abstract_method;
+  BaseStream.prototype._if  = BaseStream.prototype.$if;
   /**
    * Make edits to the stream when the condition in the corresponding 'if' call
    * is false. Only defined for $if branches
@@ -222,6 +220,35 @@
       }), stream._context).parent(stream);
     }), stream._context).parent(stream);
   };
+  ElementStream.prototype.$if  = function(condition){
+    var stream   = this;
+    var ifCursor = this._cursor.clone();
+    
+    condition = this.eval(condition).delay(0);
+
+    var trueStream = condition.map(function(c){
+      var context = stream._context;
+      var element = stream._el;
+      var cursor  = ifCursor.clone();
+      
+      return c ? new ElementStream(element, context, cursor).parent(stream) : new EventedStream(Bacon.never(), context).parent(stream);
+    });
+    var falseStream = condition.not().map(function(c){
+      var context = stream._context;
+      var element = stream._el;
+      var cursor  = ifCursor.clone();
+      
+      return c ? new ElementStream(element, context, cursor).parent(stream) : new EventedStream(Bacon.never(), context).parent(stream);
+    });
+
+    var conditional = new EventedStream(trueStream, trueStream._context).parent(this);
+    conditional.$else = function(){
+      return new EventedStream(falseStream, falseStream._context).parent(this._parent);
+    };
+
+    return conditional;
+  };
+  ElementStream.prototype._if  = ElementStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
   ElementStream.prototype.call = function(callback){
     callback.call(this, this._el, this._context.data, this._context.index);
@@ -261,8 +288,22 @@
   ArrayStream.prototype.each = function(array){
     return new ArrayStream(this._streams.map(function(s){
       return s.each(array);
-    }), this._context);
+    }), this._context).parent(this);
   };
+  ArrayStream.prototype.$if = function(condition){
+    var conditional = new ArrayStream(this._streams.map(function(s){
+      return s.$if(condition);
+    }), this._context).parent(this);
+
+    conditional.$else = function(){
+      return new ArrayStream(this._streams.map(function(s){
+        return s.$else();
+      }), this._context).parent(this._parent);
+    };
+
+    return conditional;
+  };
+  ArrayStream.prototype._if  = ArrayStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
   ArrayStream.prototype.call = function(callback){
     this._streams.forEach(function(s){ s.call(callback); });
@@ -304,7 +345,7 @@
     //Clear old streams as new ones arrive
     this._event.slidingWindow(2)
       .onValue(function(streams){
-        if(streams[0]){ streams[0].clear(); }
+        if(streams[0] && streams[1]){ streams[0].clear(); }
       });
 
     BaseStream.prototype._init.call(this);
@@ -316,9 +357,17 @@
     })).parent(this);
   };
   EventedStream.prototype.$if  = function(condition){
-    return new EventedStream(this._event.map(function(stream){
+    var conditional = new EventedStream(this._event.map(function(stream){
       return stream.$if(condition);
     }), this._context).parent(this);
+
+    conditional.$else = function(){
+      return new EventedStream(this._event.map(function(stream){
+        return stream.$else();
+      }), this._context).parent(this._parent);
+    };
+
+    return conditional;
   };
   EventedStream.prototype._if = EventedStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
@@ -346,26 +395,6 @@
     });
     return this;
   };
-
-
-
-  /////////////////////////////////////////////////////////////////////////////
-  // CONDITIONAL STREAMS
-  /////////////////////////////////////////////////////////////////////////////
-  function ConditionalStream(stream, condition, context){
-    this._trues       = condition.filter(id).map(stream);
-    this._falses      = condition.not().filter(id).map(stream);
-    this._event       = this._trues;
-    this._context     = context;
-
-    this._init();
-  }
-  ConditionalStream.prototype = new EventedStream(Bacon.never());
-  // ----- Control flow -------------------------------------------------------
-  ConditionalStream.prototype.$else = function(){
-    return new EventedStream(this._falses, this._context);
-  };
-  ConditionalStream.prototype._else = ConditionalStream.prototype.$else;
 
 
 
