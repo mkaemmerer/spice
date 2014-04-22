@@ -1,481 +1,547 @@
-window.$spice = 
-(function($){
-	function $spice_mixin_plugins(stream, context){
-		for(var fn in $spice.tags){
-			if($spice.tags.hasOwnProperty(fn) && $spice.tags[fn]){
-				stream[fn] = delegateTag($spice.tags[fn])
-			}
-		}
+(function($, Bacon){
+  'use strict';
 
-		for(var fn in $spice.modifiers){
-			if($spice.modifiers.hasOwnProperty(fn) && $spice.modifiers[fn]){
-				stream[fn] = delegateMethod($spice.modifiers[fn])
-			}	
-		}
+  function abstract_method(){ throw 'abstract method'; }
+  function noop(){}
 
-		function delegateTag(tag){
-			return function(){
-				var args = [].slice.call(arguments)
-				  , ctx  = [stream, context.data(), context.index()]
-				return tag.apply(stream, ctx.concat(args))
-			}
-		}
+  /////////////////////////////////////////////////////////////////////////////
+  // STREAM CONTEXT
+  /////////////////////////////////////////////////////////////////////////////
+  function Context(data, index){
+    this.data   = data;
+    this.index  = index;
+  }
+  Context.prototype.eval = function(callback){
+    return callback(this.data, this.index);
+  };
 
-		function delegateMethod(method){
-			return function(){
-				var args = [].slice.call(arguments)
-				  , ctx  = [stream, context.data(), context.index()]
-				method.apply(stream, ctx.concat(args))
-				return stream
-			}
-		}
-	}
-	
-	//BASE
-	var baseStream = function(context){
-		var stream = {}
+  /////////////////////////////////////////////////////////////////////////////
+  // CURSOR
+  /////////////////////////////////////////////////////////////////////////////
+  function Cursor(){
+    this._$el      = $(document.createTextNode(''));
+    this._contents = [];
+  }
+  Cursor.prototype.open  = function(el){
+    this._$el.appendTo(el);
+  };
+  Cursor.prototype.close = function(){
+    this._$el.remove();
+  };
+  Cursor.prototype.write = function(content){
+    this._contents.push(content);
+    this._$el.before(content);
+  };
+  Cursor.prototype.clear = function(){
+    this._contents.forEach(function(el){
+      $(el).remove();
+    });
+    this._contents = [];
+  };
+  Cursor.prototype.clone = function(){
+    var clone = new Cursor();
+    this.write(clone._$el);
+    return clone;
+  };
 
-		stream.data = function(d){
-			if(!arguments.length) return context.data()
-			context.data(d)
-			return stream
-		}
-		stream.call = function(callback){
-			callback.call(context.result(), context.data(), context.index())
-			return stream
-		}
-		stream.eval = function(value){
-			if(typeof value === "function")
-				return value(context.data(), context.index())
-			return value
-		}
-		stream.tap = function(callback){
-			callback(stream)
-			return stream
-		}
-		stream.append = function(content){
-			context.push(content)
-			return stream
-		}
-		stream.open = function(content){
-			var new_context = elementContext(content, context.data(), context.index())
-			  , new_stream  = elementStream(new_context)
-			stream.append(content)
-			return new_stream.bindClose(stream)
-		}
-		stream.selectAll = function(selector){
-			var els = context.select(selector)
-			  , ss  = els.map(function(el, i){
-			  	return elementStream(elementContext(el, context.data(), i))
-			  })
-			  , new_stream = arrayStream(ss, elementContext(null, context.data()))
+  /////////////////////////////////////////////////////////////////////////////
+  // ABSTRACT BASE CLASS
+  /////////////////////////////////////////////////////////////////////////////
+  function BaseStream(){
+  }
+  BaseStream.prototype._init = function(){
+    this._tags      = {};
+    this._modifiers = {};
+  };
+  /**
+   * Register a function as a tag writer for this stream
+   */
+  BaseStream.prototype.defineTag = function(name, tag){
+    this[name] = function(){
+      var args = [].slice.call(arguments);
+      return tag.apply(this, args).parent(this);
+    };
+    this._tags[name] = tag;
 
-			return new_stream.bindClose(stream)
-		}
-		stream.each = function(array){
-			var streams
-			  , new_stream
+    return this;
+  };
+  /**
+   * Register a function as a attribute modifier for this stream
+   */
+  BaseStream.prototype.defineModifier = function(name, modifier){
+    this[name] = function(){
+      var args   = [].slice.call(arguments);
+      this.call(function(el){
+        var ctx  = [el];
+        modifier.apply(this, ctx.concat(args));
+      });
+      return this;
+    };
+    this._modifiers[name] = modifier;
 
-			array = stream.eval(array)
-			streams = array.map(function(d, i){
-				var result = context.result()
-				if($.isArray(result)){
-					return topLevelStream(topLevelContext(result, d, i))
-				} else {
-					return elementStream(elementContext(result, d, i))
-				}
-			})
-			new_stream = arrayStream(streams, context)
-			
-			return new_stream.bindClose(stream)
-		}
-		stream._if  = function(condition){
-			var new_stream = conditionalStream(stream.eval(condition), stream, context)
-			return new_stream.bindClose(stream)
-		}
-		
-		$spice_mixin_plugins(stream, context)
+    return this;
+  };
+  BaseStream.prototype._defineAll = function(tags, modifiers){
+    for(var fn in tags){
+      if(tags.hasOwnProperty(fn) && tags[fn]){
+        this.defineTag(fn, tags[fn]);
+      }
+    }
 
-		return stream
-	}
+    for(fn in modifiers){
+      if(modifiers.hasOwnProperty(fn) && modifiers[fn]){
+        this.defineModifier(fn, modifiers[fn]);
+      }
+    }
 
-	//TOP LEVEL
-	var topLevelContext = function(buffer, data, index){
-		var context = {}
-		buffer = buffer || []
+    return this;
+  };
+  
+  // ----- Control flow -------------------------------------------------------
 
-		context.data = function(d){
-			if(!arguments.length) return data
-			data = d
-			return context
-		}
-		context.index = function(){
-			return index
-		}
-		context.push = function(content){
-			buffer.push(content)
-		}
-		context.result = function(){
-			return buffer
-		}
-		context.select = function(selector){
-			var selections = buffer.map(function(el){
-					return $(el).find(selector).toArray()
-				})
-			
-			return selections.reduce(function(memo,selection){
-				return memo.concat(selection)
-			}, [])
-		}
+  /**
+   * Make edits to the stream for each item in an array
+   */
+  BaseStream.prototype.each = abstract_method;
+  /**
+   * Make edits to the stream when the condition is true
+   */
+  BaseStream.prototype.$if  = abstract_method;
+  BaseStream.prototype._if  = BaseStream.prototype.$if;
+  /**
+   * Make edits to the stream when the condition in the corresponding 'if' call
+   * is false. Only defined for $if branches
+   */
+  BaseStream.prototype.$else = undefined;
+  
+  // ----- Utility ------------------------------------------------------------
+  
+  /**
+   * Set the data bound to this stream
+   */
+  BaseStream.prototype.data = function(data){
+    this._context.data  = data;
+    return this;
+  };
+  /**
+   * Set the index bound to this stream
+   */
+  BaseStream.prototype.index = function(index){
+    this._context.index = index;
+    return this;
+  };
+  /**
+   * Accepts an argument capable of yielding a value.
+   * the given argument can be any of the following: 
+   *     A raw value:     value
+   *     A function:      (data,index) -> value
+   *     A function:      (data,index) -> Observable value
+   *     An observable:   Observable value
+   * Returns an observable value
+   */
+  BaseStream.prototype.eval = function(value){
+    if(typeof value === 'function'){
+      return this.eval(this._context.eval(value));
+    } else if(value instanceof Bacon.Observable){
+      return value;
+    } else {
+      return Bacon.once(value);
+    }
+  };
+  /**
+   * Call a callback with the current context (data and index),
+   * exposing the underlying DOM element as 'this'
+   */
+  BaseStream.prototype.call = abstract_method;
+  
+  // ----- Builder Methods -----------------------------------------------------
 
-		context.methods = {}
-
-		return context
-	}
-	var topLevelStream = function(context){
-		var stream = baseStream(context)
-
-		stream.close = function(){
-			return context.result()
-		}
-
-		return stream
-	}
-
-	//TAG
-	var elementContext = function(element, data, index){
-		var context  = {}
-		  , buffer   = []
-		  , $element = $(element)
-
-		context.data = function(d){
-			if(!arguments.length) return data
-			data = d
-			return context
-		}
-		context.index = function(){
-			return index
-		}
-
-		context.push = function(content){
-			buffer.push(content)
-			$element.append(content)
-		}
-		context.result = function(){
-			return element
-		}
-		context.select = function(selector){
-			return $element.find(selector).toArray()
-		}
-
-		context.methods = {
-			  text: function(text){
-					$element.append(text)
-				}
-			, attr: function(key, value){
-					$element.attr(key, value)
-				}
-			, attrs: function(map){
-					$element.attr(map)
-				}
-			, classed: function(classes){
-					for(var className in classes){
-						if(classes.hasOwnProperty(className) && classes[className])
-							$element.addClass(className)
-					}
-				}
-		}
-
-		return context
-	}
-	var elementStream = function(context){
-		var stream = baseStream(context)
-		  , parent
+  /**
+   * Append the contents to the current element
+   */
+  BaseStream.prototype.append = abstract_method;
+  /**
+   * Append the contents to the current element, and open the added element for
+   * further editing
+   */
+  BaseStream.prototype.open   = abstract_method;
+  /**
+   * Remove all child elements that were created by this stream
+   */
+  BaseStream.prototype.clear  = abstract_method;
+  /**
+   * Sets the parent stream.
+   * The parent is returned by the method 'close' for convenient chaining
+   */
+  BaseStream.prototype.parent = function(parent){
+    this._parent = parent;
+    this._defineAll(parent._tags, parent._modifiers);
+    return this;
+  };
+  BaseStream.prototype.bindClose = BaseStream.prototype.parent;
+  /**
+   * Return the parent stream
+   */
+  BaseStream.prototype.close  = function(){
+    return this._parent;
+  };
 
 
-		stream.bindClose = function(p){
-			parent = p
-			return stream
-		}
-		stream.close = function(){
-			return parent
-		}
 
-		stream.text = function(text){
-			text = stream.eval(text)
-			context.methods.text(text)
-			return stream
-		}
-		stream.attr = function(key, value){
-			value = stream.eval(value)
-			context.methods.attr(key, value)
-			return stream
-		}
-		stream.attrs = function(map){
-			map = stream.eval(map)
-			context.methods.attrs(map)
-			return stream
-		}
-		stream.classed = function(classes){
-			classes = stream.eval(classes)
-			context.methods.classed(classes)
-			return stream
-		}
+  /////////////////////////////////////////////////////////////////////////////
+  // SINGLE ELEMENT STREAM
+  /////////////////////////////////////////////////////////////////////////////
+  function ElementStream(element, context, cursor){
+    this._el      = element;
+    this._context = context;
+    this._cursor  = cursor;
+    this._init();
+  }
+  ElementStream.prototype = new BaseStream();
+  ElementStream.prototype._init = function(){
+    if(!this._cursor){
+      this._cursor = new Cursor();
+      this._cursor.open(this._el);
+    }
+    BaseStream.prototype._init.call(this);
+    this._defineAll($spice.tags, $spice.modifiers);
+  };
+  // ----- Control flow -------------------------------------------------------
+  ElementStream.prototype.each = function(array){
+    var stream = this;
+    var eachCursor = stream._cursor.clone();
+    
+    return new EventedStream(this.eval(array).delay(0).map(function(array){
+      return new ArrayStream(array.map(function(d,i){
+        var context = new Context(d,i);
+        var element = stream._el;
+        var cursor  = eachCursor.clone();
+        return new ElementStream(element, context, cursor).parent(stream);
+      }), stream._context).parent(stream);
+    }), stream._context).parent(stream);
+  };
+  ElementStream.prototype.$if  = function(condition){
+    var stream   = this;
+    var ifCursor = this._cursor.clone();
+    
+    condition = this.eval(condition).delay(0);
 
-		return stream
-	}
+    var trueStream = condition.map(function(c){
+      var context = stream._context;
+      var element = stream._el;
+      var cursor  = ifCursor.clone();
+      
+      return c ? new ElementStream(element, context, cursor).parent(stream) : new EventedStream(Bacon.never(), context).parent(stream);
+    });
+    var falseStream = condition.not().map(function(c){
+      var context = stream._context;
+      var element = stream._el;
+      var cursor  = ifCursor.clone();
+      
+      return c ? new ElementStream(element, context, cursor).parent(stream) : new EventedStream(Bacon.never(), context).parent(stream);
+    });
 
-	//EACH
-	var arrayStream = function(streams, context){
-		var stream = {}
-		  , parent
+    var conditional = new EventedStream(trueStream, trueStream._context).parent(this);
+    conditional.$else = function(){
+      return new EventedStream(falseStream, falseStream._context).parent(this._parent);
+    };
 
-		stream.selectAll = function(selector){
-			var ss = streams.map(function(s){
-					return s.selectAll(selector)
-				})
-			  , new_context = elementContext(null, context.data(), context.index())
-				, new_stream = arrayStream(ss, new_context)
-
-			return new_stream
-		}
-
-		stream.eval = function(value){
-			if(typeof value === "function")
-				return value(context.data(), context.index())
-			return value
-		}
-		stream.tap = function(callback){
-			callback(stream)
-			return stream
-		}
-
-		stream.open = function(content){
-			var ss = streams.map(function(s){
-						var clone = $(content).clone()[0]
-						return s.open(clone)
-					})
-			  , new_context = elementContext(content, context.data(), context.index())
-			  , new_stream  = arrayStream(ss, new_context)
-
-			return new_stream.bindClose(stream)
-		}
-
-		stream.bindClose = function(p){
-			parent = p
-			return stream
-		}
-		stream.close = function(){
-			return parent
-		}
-		stream._if = function(condition){
-			var ss = streams.map(function(s){
-						return s._if(condition)
-					})
-		    , new_stream = arrayStream(ss, context)
-
-			new_stream._else = function(){
-				var false_ss = ss.map(function(s){
-					return s._else()
-				})
-				, false_stream = arrayStream(false_ss, context)
-
-				return false_stream.bindClose(stream)
-			}
-
-			return new_stream.bindClose(stream)
-		}
-
-		var methods = ["each"]
-		methods.forEach(function(method){
-			stream[method] = delegateMethod(method)
-		})
-		var modifiers = ["call", "append"]
-		modifiers.forEach(function(method){
-			stream[method] = delegateModifier(method)
-		})
-
-		//CONTEXT HELPERS
-		for(var method in context.methods){
-			if(context.methods.hasOwnProperty(method)){
-				stream[method] = delegateModifier(method)
-			}
-		}
-		//PLUGINS
-		for(var method in $spice.modifiers){
-			if($spice.modifiers.hasOwnProperty(method) && $spice.modifiers[method]){
-				stream[method] = delegateModifier(method)
-			}
-		}
-		for(var method in $spice.tags){
-			if($spice.tags.hasOwnProperty(method) && $spice.tags[method]){
-				stream[method] = delegateTag($spice.tags[method])
-			}
-		}
-
-		function delegateModifier(method){
-			return function(){
-				var args = arguments
-				streams.forEach(function(s){
-					s[method].apply(s,args)
-				})
-				return stream
-			}			
-		}
-		function delegateMethod(method){
-			return function(){
-				var args = arguments
-				  , ss = streams.map(function(s){
-							return s[method].apply(s, args)
-						})
-				  , new_stream = arrayStream(ss, context)
-
-				return new_stream.bindClose(stream)
-			}
-		}
-		function delegateTag(tag){
-			return function(){
-				var args = [].slice.call(arguments)
-				  , ctx  = [stream, context.data(), context.index()]
-				return tag.apply(stream, ctx.concat(args))
-			}
-		}
-
-		return stream
-	}
-
-	//IF
-	var nullStream = function(context){
-		return arrayStream([], context)
-	}
-	var delegateStream = function(original, context){
-		var stream = {}
-		  , parent
-
-		var methods = ["each", "open", "append"]
-		methods.forEach(function(method){
-			stream[method] = function(){
-				var new_stream = original[method].apply(original, arguments)
-				return new_stream.bindClose(stream)
-			}
-		})
-
-		var mutators = ["data", "call"]
-		mutators.forEach(function(method){
-			stream[method] = function(){
-				original[method].apply(original, arguments)
-				return stream
-			}
-		})
-
-		stream.bindClose = function(p){
-			parent = p
-			return stream
-		}
-		stream.close = function(){
-			return parent
-		}
-
-		stream.eval = function(value){
-			if(typeof value === "function")
-				return value(context.data(), context.index())
-			return value
-		}
-		stream.tap = function(callback){
-			callback(stream)
-			return stream
-		}
-
-		stream._if = function(condition){
-			var new_stream = conditionalStream(stream.eval(condition), stream, context)
-			return new_stream.bindClose(stream)
-		}
-
-		return stream
-	}
-	var conditionalStream = function(condition, original, context){
-		var true_stream  = condition ? delegateStream(original, context) : nullStream(context)
-		  , false_stream = condition ? nullStream(context) : delegateStream(original, context)
-		  , parent
-
-		$spice_mixin_plugins(true_stream, context)
-		$spice_mixin_plugins(false_stream, context)
-
-		true_stream._else = function(){
-			return false_stream.bindClose(original)
-		}
-
-		return true_stream.bindClose(original)
-	}
-
-	$spice = function(element){
-		if(element)
-			return elementStream(elementContext(element))
-		return topLevelStream(topLevelContext())
-	}
-	$spice.select = function(selector){
-		var element = $(selector)[0]
-		return topLevelStream(elementContext(element))
-	}	
-	$spice.tags = {}
-	$spice.modifiers = {}
-
-	return $spice
-})(window.$);
-//Register HTML tags and attributes
-(function($spice){
-	//Tags
-	var tags = [ 'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio'                                                       //A
-	           , 'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br'                                                             //B
-	           , 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup'                                                            //C
-	           , 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt'                                            //D
-	           , 'em', 'embed'                                                                                                     //E
-	           , 'fieldset', 'figcaption', 'figure', 'footer', 'form'                                                              //F
-	                                                                                                                               //G
-	           , 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'html', 'hr'                                      //H
-	           , 'i', 'iframe', 'img', 'input', 'ins',                                                                             //I
-	                                                                                                                               //J
-	           , 'kbd', 'keygen'                                                                                                   //K
-	           , 'label', 'legend', 'li', 'link'                                                                                   //L
-	           , 'map', 'mark', 'menu', 'meta', 'meter'                                                                            //M
-	           , 'nav', 'noscript'                                                                                                 //N
-	           , 'object', 'ol', 'optgroup', 'option', 'output'                                                                    //O
-	           , 'p', 'param', 'pre', 'progress'                                                                                   //P
-	           , 'q'                                                                                                               //Q
-	           , 'rp', 'rt', 'ruby'                                                                                                //R
-	           , 's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup' //S
-	           , 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track'                        //T
-	           , 'u', 'ul'                                                                                                         //U
-	           , 'var', 'video'                                                                                                    //V
-	           , 'wbr'                                                                                                             //W
-	                                                                                                                               //X
-	                                                                                                                               //Y
-	                                                                                                                               //Z
-	           ]
-
-	tags.forEach(function(tagName){
-		$spice.tags[tagName] = tag(tagName)
-	})
-
-	function tag(tagName){
-		return function(){
-			var tag = document.createElement(tagName)
-			return this.open(tag)
-		}
-	}
+    return conditional;
+  };
+  ElementStream.prototype._if  = ElementStream.prototype.$if;
+  // ----- Utility ------------------------------------------------------------
+  ElementStream.prototype.call = function(callback){
+    callback.call(this, this._el, this._context.data, this._context.index);
+    return this;
+  };
+  // ----- Builder Methods -----------------------------------------------------
+  ElementStream.prototype.append = function(content){
+    this._cursor.write(content);
+    return this;
+  };
+  ElementStream.prototype.open = function(content){
+    this.append(content);
+    return new ElementStream(content, this._context).parent(this);
+  };
+  ElementStream.prototype.clear = function(){
+    this._cursor.clear();
+    return this;
+  };
+  ElementStream.prototype.parent = function(parent){
+    this._parent = parent;
+    return this;
+  };
+  ElementStream.prototype.bindClose = ElementStream.prototype.parent;
 
 
-	//Attributes
-	var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ]
 
-	attrs.forEach(function(attrName){
-		$spice.modifiers[attrName] = attribute(attrName)
-	})
-	$spice.modifiers["_class"] = attribute("class")
+  /////////////////////////////////////////////////////////////////////////////
+  // MULTIPLE ELEMENT STREAMS
+  /////////////////////////////////////////////////////////////////////////////
+  function ArrayStream(streams, context){
+    this._streams = streams;
+    this._context = context;
+    this._init();
+  }
+  ArrayStream.prototype = new BaseStream();
+  // ----- Control flow -------------------------------------------------------
+  ArrayStream.prototype.each = function(array){
+    return new ArrayStream(this._streams.map(function(s){
+      return s.each(array);
+    }), this._context).parent(this);
+  };
+  ArrayStream.prototype.$if = function(condition){
+    var conditional = new ArrayStream(this._streams.map(function(s){
+      return s.$if(condition);
+    }), this._context).parent(this);
 
-	function attribute(attrName){
-		return function(stream, d, i, value){
-			return this.attr(attrName, value);
-		}
-	}
-})(window.$spice)
+    conditional.$else = function(){
+      return new ArrayStream(this._streams.map(function(s){
+        return s.$else();
+      }), this._context).parent(this._parent);
+    };
+
+    return conditional;
+  };
+  ArrayStream.prototype._if  = ArrayStream.prototype.$if;
+  // ----- Utility ------------------------------------------------------------
+  ArrayStream.prototype.call = function(callback){
+    this._streams.forEach(function(s){ s.call(callback); });
+    return this;
+  };
+  // ----- Builder Methods -----------------------------------------------------
+  ArrayStream.prototype.append = function(content){
+    this._streams.forEach(function(s){
+      s.append(content);
+    });
+    return this;
+  };
+  ArrayStream.prototype.open = function(content){
+    return new ArrayStream(this._streams.map(function(s){
+      var clone = $(content).clone()[0];
+      return s.open(clone);
+    }), this._context).parent(this);
+  };
+  ArrayStream.prototype.clear = function(){
+    this._streams.forEach(function(s){
+      s.clear();
+    });
+    return this;
+  };
+
+
+
+  /////////////////////////////////////////////////////////////////////////////
+  // BACON-POWERED STREAMS
+  /////////////////////////////////////////////////////////////////////////////
+  function EventedStream(event, context){
+    this._event   = event;
+    this._context = context;
+    this._init();
+  }
+  EventedStream.prototype = new BaseStream();
+  EventedStream.prototype._init = function(){
+    this._event.onValue(noop);
+    //Clear old streams as new ones arrive
+    this._event.slidingWindow(2)
+      .onValue(function(streams){
+        if(streams[0] && streams[1]){ streams[0].clear(); }
+      });
+
+    BaseStream.prototype._init.call(this);
+  };
+  // ----- Control flow -------------------------------------------------------
+  EventedStream.prototype.each = function(array){
+    return new EventedStream(this._event.map(function(stream){
+      return stream.each(array);
+    })).parent(this);
+  };
+  EventedStream.prototype.$if  = function(condition){
+    var conditional = new EventedStream(this._event.map(function(stream){
+      return stream.$if(condition);
+    }), this._context).parent(this);
+
+    conditional.$else = function(){
+      return new EventedStream(this._event.map(function(stream){
+        return stream.$else();
+      }), this._context).parent(this._parent);
+    };
+
+    return conditional;
+  };
+  EventedStream.prototype._if = EventedStream.prototype.$if;
+  // ----- Utility ------------------------------------------------------------
+  EventedStream.prototype.call = function(callback){
+    this._event.onValue(function(stream){
+      stream.call(callback);
+    });
+    return this;
+  };
+  // ----- Builder Methods ----------------------------------------------------
+  EventedStream.prototype.append = function(content){
+    this._event.onValue(function(stream){
+      stream.append(content);
+    });
+    return this;
+  };
+  EventedStream.prototype.open = function(content){
+    return new EventedStream(this._event.map(function(stream){
+      return stream.open(content);
+    }), this._context).parent(this);
+  };
+  EventedStream.prototype.clear = function(){
+    this._event.take(1).onValue(function(stream){
+      stream.clear();
+    });
+    return this;
+  };
+
+
+
+  /////////////////////////////////////////////////////////////////////////////
+  // EXPORTS
+  /////////////////////////////////////////////////////////////////////////////
+  var $spice = function(element){
+    var stream = new ElementStream(element, new Context())
+      ._defineAll($spice.tags, $spice.modifiers);
+
+    return stream;
+  };
+  $spice.select = function(selector){
+    var streams = $(selector).toArray()
+      .map(function(el){
+        return $spice(el);
+      });
+    var arrayStream = new ArrayStream(streams, new Context())
+      ._defineAll($spice.tags, $spice.modifiers);
+
+    return arrayStream;
+  };
+  $spice.modifiers = {};
+  $spice.tags      = {};
+
+  window.$spice = $spice;
+
+})(window.jQuery, window.Bacon);
+
+//Extensions
+(function($spice, $, Bacon){
+  'use strict';
+
+  function withProperties(callback){
+    /* jshint validthis:true */
+    var stream = this;
+    var props  = [].slice.call(arguments, 1);
+    
+    Bacon.zipAsArray(props.map(stream.eval.bind(stream)))
+      .onValue(function(array){
+        callback.apply(this, array);
+      });
+
+    return stream;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  // MODIFIERS
+  /////////////////////////////////////////////////////////////////////////////
+  $spice.modifiers.attrs = function(el, attr_map){
+    var stream = this;
+
+    for(var attr_name in attr_map){
+      if(attr_map.hasOwnProperty(attr_name) && attr_map[attr_name]){
+        stream.attr(attr_name, attr_map[attr_name]);
+      }
+    }
+  };
+  $spice.modifiers.classed = function(el, class_map){
+    for(var class_name in class_map){
+      if(class_map.hasOwnProperty(class_name) && class_map[class_name]){
+        withProperties.call(this, setClass, class_name, class_map[class_name]);
+      }
+    }
+    function setClass(name, on){
+      if(on){
+        $(el).addClass(name);
+      } else {
+        $(el).removeClass(name);
+      }
+    }
+  };
+  $spice.modifiers.attr = function(el, attr_name, attr_value){
+    withProperties.call(this, function(value){
+      $(el).attr(attr_name, value);
+    }, attr_value);
+  };
+  $spice.modifiers.text = function(el, text){
+    var textNode = document.createTextNode('');
+    this.append(textNode);
+
+    withProperties.call(this, function(text){
+      textNode.textContent = text;
+    }, text);
+  };
+  $spice.modifiers.addClass = function(el, class_name){
+    withProperties.call(this, function(class_name){
+      $(el).addClass(class_name);
+    }, class_name);
+  };
+
+  //Attributes
+  var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ];
+
+  attrs.forEach(function(attrName){
+    $spice.modifiers[attrName] = attribute(attrName);
+  });
+  $spice.modifiers.$class = attribute('class');
+  $spice.modifiers._class = $spice.modifiers.$class;
+
+  function attribute(attrName){
+    return function(el, value){
+      return this.attr(attrName, value);
+    };
+  }
+
+
+  /////////////////////////////////////////////////////////////////////////////
+  // TAGS
+  /////////////////////////////////////////////////////////////////////////////
+  var tags = [ 'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio'                                                       //A
+             , 'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br', 'button',                                                  //B
+             , 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup'                                                            //C
+             , 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt'                                            //D
+             , 'em', 'embed'                                                                                                     //E
+             , 'fieldset', 'figcaption', 'figure', 'footer', 'form'                                                              //F
+                                                                                                                                 //G
+             , 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'html', 'hr'                                      //H
+             , 'i', 'iframe', 'img', 'input', 'ins'                                                                              //I
+                                                                                                                                 //J
+             , 'kbd', 'keygen'                                                                                                   //K
+             , 'label', 'legend', 'li', 'link'                                                                                   //L
+             , 'map', 'mark', 'menu', 'meta', 'meter'                                                                            //M
+             , 'nav', 'noscript'                                                                                                 //N
+             , 'object', 'ol', 'optgroup', 'option', 'output'                                                                    //O
+             , 'p', 'param', 'pre', 'progress'                                                                                   //P
+             , 'q'                                                                                                               //Q
+             , 'rp', 'rt', 'ruby'                                                                                                //R
+             , 's', 'samp', 'script', 'section', 'select', 'small', 'source', 'span', 'strong', 'style', 'sub', 'summary', 'sup' //S
+             , 'table', 'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track'                        //T
+             , 'u', 'ul'                                                                                                         //U
+             , 'var', 'video'                                                                                                    //V
+             , 'wbr'                                                                                                             //W
+                                                                                                                                 //X
+                                                                                                                                 //Y
+                                                                                                                                 //Z
+             ];
+
+  tags.forEach(function(tagName){
+    $spice.tags[tagName] = tag(tagName);
+  });
+
+  function tag(tagName){
+    return function(){
+      var tag = document.createElement(tagName);
+      return this.open(tag);
+    };
+  }
+
+})(window.$spice, window.jQuery, window.Bacon);
