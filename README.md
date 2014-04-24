@@ -31,11 +31,10 @@ produces the following output
 
 ### $spice(element)
 Wrapping an element with ```$spice(element)``` returns a "stream" which can be used to build DOM elements.
-By working with DOM elements directly instead of cobbling HTML strings together, 
 
 ### stream[tag name]()
 Create a new element as the child of the current element by calling the tag name as a function with no arguments.
-Returns a stream of the newly created elements.
+Returns a stream of the new elements.
 
 By default, ```$spice``` recognizes these tags:
 
@@ -61,44 +60,75 @@ By default, ```$spice``` recognizes these tags:
 * 'var', 'video'
 * 'wbr'
 
-### stream[attribute name](value)
-Sets the attribute on the current elements to ```value```.
-
-By default, ```$spice``` recognizes these attributes:
-* 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value'
-
-### stream.$class(value)
-Set the class attribute on the current element. (This method is named ```$class``` to avoid conflict with the future reserved word ```class```).
+### stream.text(string)
+Appends ```string``` to the current elements as HTML-escaped text.
 
 
 
 ## Setting Attributes
 
+### stream[attribute name](value)
+Sets the attribute on the current elements to ```value```. Returns the stream.
+
+By default, ```$spice``` recognizes these attributes:
+* 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value'
+
+### stream.$class(value)
+Set the class attribute on the current element. (This method is named ```$class``` to avoid conflict with the future reserved word ```class```). Returns the stream.
+
 ### stream.attr(name, value)
-Set the attribute ```name``` to ```value``` on the current elements.
+Set the attribute ```name``` to ```value``` on the current elements. Returns the stream.
 
 ### stream.attrs(attribute_map)
-Sets multiple attributes on the current elements.
+Sets multiple attributes on the current elements. Returns the stream.
 
 ### stream.addClass(class_name)
-Adds ```class_name``` to the current elements' class attribute.
+Adds ```class_name``` to the current elements' class attribute. Returns the stream.
 
 ### stream.classed(class_map)
-Adds a class name for each key in the object ```class_map``` if the value of that key is truthy.
+Adds a class name for each key in the object ```class_map``` if the value of that key is truthy. Returns the stream.
 
 
 
 ## Control flow
 
-### stream.if
-### stream.each
-### stream.open
-### stream.append
-### stream.close
-### stream.call
+### stream.append(element)
+Append the element to the current element, and return the current stream.
+
+### stream.open(element)
+Append the element to the current element, and return a stream containing the *new* element.
+Typically you will use the shorthand-methods ```stream.div()```, ```stream.span()```, etc. instead of using open directly.
+
+### stream.close()
+Returns this streams "parent" stream. This can be used to chain method calls in order to create multiple elements.
+For example:
+```
+stream.ul()
+	.li()
+		.a().close()
+	.close()
+	.li()
+		.a().close()
+	.close()
+.close()
+```
+
+### stream.if(condition)
+Returns a stream that will create new elements only if ```condition``` is true.
+
+### stream.else()
+Returns a stream that will create new elements only if the condition in the corresponding ```if``` is false. (Can only be used after calling ```stream.if```).
+
+### stream.each(array)
+Returns a stream that will create elements in parallel -- one for each object in ```array```.
+
 
 
 ## Extending Spice
+
+### stream.call(callback)
+Calls ```callback``` with the stream as ```this```, and the current element as the first argument.
+If there is a manipulation you want to be able to make to the DOM elements you are building that you can't accomplish with the existing methods in ```$spice```, you may find ```call``` useful.
 
 ### $spice.defineTag(name, method)
 

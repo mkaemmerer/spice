@@ -7,7 +7,7 @@
     var stream = this;
     var props  = [].slice.call(arguments, 1);
     
-    Bacon.zipAsArray(props.map(stream.eval.bind(stream)))
+    Bacon.combineAsArray(props.map(stream.eval.bind(stream)))
       .onValue(function(array){
         callback.apply(this, array);
       });
