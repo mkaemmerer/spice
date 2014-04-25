@@ -344,9 +344,10 @@
     this._event.onValue(noop);
     //Clear old streams as new ones arrive
     this._event.slidingWindow(2)
-      .onValue(function(streams){
+      .doAction(function(streams){
         if(streams[0] && streams[1]){ streams[0].clear(); }
-      });
+      })
+      .onValue(noop);
 
     BaseStream.prototype._init.call(this);
   };
