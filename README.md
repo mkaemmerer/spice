@@ -113,10 +113,10 @@ stream.ul()
 .close()
 ```
 
-### stream.if(condition)
+### stream.$if(condition)
 Returns a stream that will create new elements only if ```condition``` is true.
 
-### stream.else()
+### stream.$else()
 Returns a stream that will create new elements only if the condition in the corresponding ```if``` is false. (Can only be used after calling ```stream.if```).
 
 ### stream.each(array)

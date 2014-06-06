@@ -1,4 +1,4 @@
-(function($, Bacon){
+(function(root, $, Bacon){
   'use strict';
 
   function abstract_method(){ throw 'abstract method'; }
@@ -52,14 +52,17 @@
   BaseStream.prototype._init = function(){
     this._tags      = {};
     this._modifiers = {};
+    this._name      = null;
   };
   /**
    * Register a function as a tag writer for this stream
    */
   BaseStream.prototype.defineTag = function(name, tag){
     this[name] = function(){
-      var args = [].slice.call(arguments);
-      return tag.apply(this, args).parent(this);
+      var args  = [].slice.call(arguments);
+      var child = tag.apply(this, args);
+      child._name = name + '(' + args.map(function(a){ return a.toString(); }).join(',') + ')';
+      return child.parent(this);
     };
     this._tags[name] = tag;
 
@@ -178,15 +181,21 @@
     this._defineAll(parent._tags, parent._modifiers);
     return this;
   };
-  BaseStream.prototype.bindClose = BaseStream.prototype.parent;
   /**
    * Return the parent stream
    */
   BaseStream.prototype.close  = function(){
     return this._parent;
   };
-
-
+  /**
+   * Return a string representation of this stream
+   */
+  BaseStream.prototype.toString = function(){
+    var string = [];
+    if(this._parent){ string.push(this._parent.toString()); }
+    if(this._name)  { string.push(this._name); }
+    return string.join('.');
+  };
 
   /////////////////////////////////////////////////////////////////////////////
   // SINGLE ELEMENT STREAM
@@ -211,14 +220,16 @@
     var stream = this;
     var eachCursor = stream._cursor.clone();
     
-    return new EventedStream(this.eval(array).delay(0).map(function(array){
+    var eventedStream = new EventedStream(this.eval(array).delay(0).map(function(array){
       return new ArrayStream(array.map(function(d,i){
         var context = new Context(d,i);
         var element = stream._el;
         var cursor  = eachCursor.clone();
         return new ElementStream(element, context, cursor).parent(stream);
       }), stream._context).parent(stream);
-    }), stream._context).parent(stream);
+    }), stream._context);
+    eventedStream._name = 'each([' + array.toString() + '])';
+    return eventedStream.parent(stream);
   };
   ElementStream.prototype.$if  = function(condition){
     var stream   = this;
@@ -241,12 +252,15 @@
       return c ? new ElementStream(element, context, cursor).parent(stream) : new EventedStream(Bacon.never(), context).parent(stream);
     });
 
-    var conditional = new EventedStream(trueStream, trueStream._context).parent(this);
+    var conditional = new EventedStream(trueStream, trueStream._context);
+    conditional._name = '$if(' + condition.toString() + ')';
     conditional.$else = function(){
-      return new EventedStream(falseStream, falseStream._context).parent(this._parent);
+      var eventedStream = new EventedStream(falseStream, falseStream._context);
+      eventedStream._name = '$if(' + condition.toString() + '):$else()';
+      return eventedStream.parent(this._parent);
     };
 
-    return conditional;
+    return conditional.parent(this);
   };
   ElementStream.prototype._if  = ElementStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
@@ -261,7 +275,8 @@
   };
   ElementStream.prototype.open = function(content){
     this.append(content);
-    return new ElementStream(content, this._context).parent(this);
+    var stream = new ElementStream(content, this._context);
+    return stream.parent(this);
   };
   ElementStream.prototype.clear = function(){
     this._cursor.clear();
@@ -271,9 +286,6 @@
     this._parent = parent;
     return this;
   };
-  ElementStream.prototype.bindClose = ElementStream.prototype.parent;
-
-
 
   /////////////////////////////////////////////////////////////////////////////
   // MULTIPLE ELEMENT STREAMS
@@ -286,22 +298,27 @@
   ArrayStream.prototype = new BaseStream();
   // ----- Control flow -------------------------------------------------------
   ArrayStream.prototype.each = function(array){
-    return new ArrayStream(this._streams.map(function(s){
+    var arrayStream = new ArrayStream(this._streams.map(function(s){
       return s.each(array);
-    }), this._context).parent(this);
+    }), this._context);
+    arrayStream._name = 'each([' + array.toString() + '])';
+    return arrayStream.parent(this);
   };
   ArrayStream.prototype.$if = function(condition){
     var conditional = new ArrayStream(this._streams.map(function(s){
       return s.$if(condition);
-    }), this._context).parent(this);
+    }), this._context);
+    conditional._name = '$if(' + condition.toString() + ')';
 
     conditional.$else = function(){
-      return new ArrayStream(this._streams.map(function(s){
+      var arrayStream = new ArrayStream(this._streams.map(function(s){
         return s.$else();
-      }), this._context).parent(this._parent);
+      }), this._context);
+      arrayStream._name = '$if(' + condition.toString() + '):$else()';
+      return arrayStream.parent(this._parent);
     };
 
-    return conditional;
+    return conditional.parent(this);
   };
   ArrayStream.prototype._if  = ArrayStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
@@ -329,8 +346,6 @@
     return this;
   };
 
-
-
   /////////////////////////////////////////////////////////////////////////////
   // BACON-POWERED STREAMS
   /////////////////////////////////////////////////////////////////////////////
@@ -353,22 +368,27 @@
   };
   // ----- Control flow -------------------------------------------------------
   EventedStream.prototype.each = function(array){
-    return new EventedStream(this._event.map(function(stream){
+    var eventedStream = new EventedStream(this._event.map(function(stream){
       return stream.each(array);
-    })).parent(this);
+    }));
+    eventedStream._name = 'each([' + array.toString() + '])';
+    return eventedStream.parent(this);
   };
   EventedStream.prototype.$if  = function(condition){
     var conditional = new EventedStream(this._event.map(function(stream){
       return stream.$if(condition);
-    }), this._context).parent(this);
+    }), this._context);
+    conditional._name = '$if(' + condition.toString() + ')';
 
     conditional.$else = function(){
-      return new EventedStream(this._event.map(function(stream){
+      var eventedStream = new EventedStream(this._event.map(function(stream){
         return stream.$else();
-      }), this._context).parent(this._parent);
+      }), this._context);
+      eventedStream._name = '$if(' + condition.toString() + '):$else()';
+      return eventedStream.parent(this._parent);
     };
 
-    return conditional;
+    return conditional.parent(this);
   };
   EventedStream.prototype._if = EventedStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
@@ -397,8 +417,6 @@
     return this;
   };
 
-
-
   /////////////////////////////////////////////////////////////////////////////
   // EXPORTS
   /////////////////////////////////////////////////////////////////////////////
@@ -415,12 +433,21 @@
       });
     var arrayStream = new ArrayStream(streams, new Context())
       ._defineAll($spice.tags, $spice.modifiers);
+    arrayStream._name = '$spice.select("' + selector + '")';
 
     return arrayStream;
   };
+  $spice.defineTag = function(name, tag){
+    $spice.tags[name] = tag;
+  };
+  $spice.defineModifier = function(name, modifier){
+    $spice.modifiers[name] = modifier;
+  };
+
   $spice.modifiers = {};
   $spice.tags      = {};
+  $spice.VERSION = '0.6.5';
 
-  window.$spice = $spice;
+  root.$spice = $spice;
 
-})(window.jQuery, window.Bacon);
+})(this, window.jQuery, window.Bacon);
