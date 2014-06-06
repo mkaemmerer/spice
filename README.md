@@ -131,13 +131,38 @@ Calls ```callback``` with the stream as ```this```, and the current element as t
 If there is a manipulation you want to be able to make to the DOM elements you are building that you can't accomplish with the existing methods in ```$spice```, you may find ```call``` useful.
 
 ### $spice.defineTag(name, method)
+Register ```method``` as a custom tag called with ```name```. ```method``` should return a new stream. Its parent will be automatically set to the stream that is used to create it.
+For example:
+```
+$spice.defineTag("my_button", function(){
+	return this.button().$class('fancy-button');
+});
+
+stream
+	.my_button()
+		.text("click me")
+	.close();
+```
 
 ### $spice.defineModifier(name, method)
+Register ```method``` as a custom attribute modifier called with ```name```. The first argument to ```method``` is the DOM element, any arguments passed when you call ```name``` will be passed to the method as well. The return value is ignored.
+For example:
+```
+$spice.defineTag("target", function(el, value){
+	$(el).attr('data-target', value);
+});
+
+stream
+	.div()
+		.target('new-window')
+	.close();
+```
 
 ### stream.defineTag(name, method)
-Similar to $spice.defineTag, but only defines the tag within the scope of the current stream.
+Similar to $spice.defineTag, but only defines the tag only within the scope of the current stream.
 
 ### stream.defineModifier(name, method)
-Similar to $spice.defineModifier, but only defines the modifier within the scope of the current stream.
+Similar to $spice.defineModifier, but only defines the modifier only within the scope of the current stream.
 
-Copyright (c) 2013 Spiceworks Inc.
+
+Copyright (c) 2013-2014 Spiceworks Inc.
