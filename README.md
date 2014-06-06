@@ -32,7 +32,7 @@ produces the following output
 ### $spice(element)
 Wrapping an element with ```$spice(element)``` returns a "stream" which can be used to build DOM elements.
 
-### stream[tag name]()
+### stream\[tag name\]()
 Create a new element as the child of the current element by calling the tag name as a function with no arguments.
 Returns a stream of the new elements.
 
@@ -67,7 +67,7 @@ Appends ```string``` to the current elements as HTML-escaped text.
 
 ## Setting Attributes
 
-### stream[attribute name](value)
+### stream\[attribute name\](value)
 Sets the attribute on the current elements to ```value```. Returns the stream.
 
 By default, ```$spice``` recognizes these attributes:
@@ -133,5 +133,11 @@ If there is a manipulation you want to be able to make to the DOM elements you a
 ### $spice.defineTag(name, method)
 
 ### $spice.defineModifier(name, method)
+
+### stream.defineTag(name, method)
+Similar to $spice.defineTag, but only defines the tag within the scope of the current stream.
+
+### stream.defineModifier(name, method)
+Similar to $spice.defineModifier, but only defines the modifier within the scope of the current stream.
 
 Copyright (c) 2013 Spiceworks Inc.
