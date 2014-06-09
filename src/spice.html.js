@@ -2,23 +2,10 @@
 (function($spice, $, Bacon){
   'use strict';
 
-  function withProperties(callback){
-    /* jshint validthis:true */
-    var stream = this;
-    var props  = [].slice.call(arguments, 1);
-    
-    Bacon.combineAsArray(props.map(stream.eval.bind(stream)))
-      .onValue(function(array){
-        callback.apply(this, array);
-      });
-
-    return stream;
-  }
-
   /////////////////////////////////////////////////////////////////////////////
   // MODIFIERS
   /////////////////////////////////////////////////////////////////////////////
-  $spice.modifiers.attrs = function(el, attr_map){
+  $spice.defineModifier('attrs', function(el, attr_map){
     var stream = this;
 
     for(var attr_name in attr_map){
@@ -26,48 +13,51 @@
         stream.attr(attr_name, attr_map[attr_name]);
       }
     }
-  };
-  $spice.modifiers.classed = function(el, class_map){
+  });
+  $spice.defineModifier('classed', function(el, class_map){
     for(var class_name in class_map){
       if(class_map.hasOwnProperty(class_name) && class_map[class_name]){
-        withProperties.call(this, setClass, class_name, class_map[class_name]);
+        var set = setClass(class_name);
+        this.eval(class_map[class_name]).onValue(set);
       }
     }
-    function setClass(name, on){
-      if(on){
-        $(el).addClass(name);
-      } else {
-        $(el).removeClass(name);
-      }
+    function setClass(name){
+      return function(on){
+        if(on){
+          $(el).addClass(name);
+        } else {
+          $(el).removeClass(name);
+        }
+      };
     }
-  };
-  $spice.modifiers.attr = function(el, attr_name, attr_value){
-    withProperties.call(this, function(value){
+  });
+  $spice.defineModifier('attr', function(el, attr_name, attr_value){
+    this.eval(attr_value).onValue(function(value){
       $(el).attr(attr_name, value);
-    }, attr_value);
-  };
-  $spice.modifiers.text = function(el, text){
+    });
+  });
+  $spice.defineModifier('text', function(el, text){
     var textNode = document.createTextNode('');
     this.append(textNode);
 
-    withProperties.call(this, function(text){
+    this.eval(text).onValue(function(text){
       textNode.textContent = text;
-    }, text);
-  };
-  $spice.modifiers.addClass = function(el, class_name){
-    withProperties.call(this, function(class_name){
+    });
+  });
+  $spice.defineModifier('addClass', function(el, class_name){
+    this.eval(class_name).onValue(function(class_name){
       $(el).addClass(class_name);
-    }, class_name);
-  };
+    });
+  });
 
   //Attributes
   var attrs = [ 'href', 'id', 'name', 'placeholder', 'src', 'title', 'type', 'value' ];
 
   attrs.forEach(function(attrName){
-    $spice.modifiers[attrName] = attribute(attrName);
+    $spice.defineModifier(attrName, attribute(attrName));
   });
-  $spice.modifiers.$class = attribute('class');
-  $spice.modifiers._class = $spice.modifiers.$class;
+  $spice.defineModifier('$class', attribute('class'));
+  $spice.defineModifier('_class', attribute('class'));
 
   function attribute(attrName){
     return function(el, value){
@@ -108,7 +98,7 @@
              ];
 
   tags.forEach(function(tagName){
-    $spice.tags[tagName] = tag(tagName);
+    $spice.defineTag(tagName, tag(tagName));
   });
 
   function tag(tagName){

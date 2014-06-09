@@ -213,7 +213,6 @@
       this._cursor.open(this._el);
     }
     BaseStream.prototype._init.call(this);
-    this._defineAll($spice.tags, $spice.modifiers);
   };
   // ----- Control flow -------------------------------------------------------
   ElementStream.prototype.each = function(array){
@@ -421,8 +420,7 @@
   // EXPORTS
   /////////////////////////////////////////////////////////////////////////////
   var $spice = function(element){
-    var stream = new ElementStream(element, new Context())
-      ._defineAll($spice.tags, $spice.modifiers);
+    var stream = new ElementStream(element, new Context());
 
     return stream;
   };
@@ -431,21 +429,30 @@
       .map(function(el){
         return $spice(el);
       });
-    var arrayStream = new ArrayStream(streams, new Context())
-      ._defineAll($spice.tags, $spice.modifiers);
+    var arrayStream = new ArrayStream(streams, new Context());
     arrayStream._name = '$spice.select("' + selector + '")';
 
     return arrayStream;
   };
   $spice.defineTag = function(name, tag){
-    $spice.tags[name] = tag;
+    BaseStream.prototype[name] = function(){
+      var args  = [].slice.call(arguments);
+      var child = tag.apply(this, args);
+      child._name = name + '(' + args.map(function(a){ return a.toString(); }).join(',') + ')';
+      return child.parent(this);
+    };
   };
   $spice.defineModifier = function(name, modifier){
-    $spice.modifiers[name] = modifier;
+    BaseStream.prototype[name] = function(){
+      var args   = [].slice.call(arguments);
+      this.call(function(el){
+        var ctx  = [el];
+        modifier.apply(this, ctx.concat(args));
+      });
+      return this;
+    };
   };
 
-  $spice.modifiers = {};
-  $spice.tags      = {};
   $spice.VERSION = '0.6.5';
 
   root.$spice = $spice;
