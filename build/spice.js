@@ -3,6 +3,7 @@
 
   function abstract_method(){ throw 'abstract method'; }
   function noop(){}
+  function getStack(){ return (new Error()).stack; }
 
   /////////////////////////////////////////////////////////////////////////////
   // STREAM CONTEXT
@@ -273,6 +274,7 @@
     return this;
   };
   ElementStream.prototype.open = function(content){
+    if($spice.debug){ $(content).data('spice', getStack); }
     this.append(content);
     var stream = new ElementStream(content, this._context);
     return stream.parent(this);
@@ -454,8 +456,8 @@
   };
 
   $spice.VERSION = '0.6.5';
-
-  root.$spice = $spice;
+  $spice.debug   = false;
+  root.$spice    = $spice;
 
 })(this, window.jQuery, window.Bacon);
 
@@ -563,9 +565,11 @@
   });
 
   function tag(tagName){
-    return function(){
+    return function(attrs){
       var tag = document.createElement(tagName);
-      return this.open(tag);
+      var stream = this.open(tag);
+      if(attrs){ stream.attrs(attrs); }
+      return stream;
     };
   }
 

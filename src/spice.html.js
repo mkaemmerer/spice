@@ -102,9 +102,11 @@
   });
 
   function tag(tagName){
-    return function(){
+    return function(attrs){
       var tag = document.createElement(tagName);
-      return this.open(tag);
+      var stream = this.open(tag);
+      if(attrs){ stream.attrs(attrs); }
+      return stream;
     };
   }
 
