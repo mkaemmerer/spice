@@ -111,7 +111,6 @@
    * Make edits to the stream when the condition is true
    */
   BaseStream.prototype.$if  = abstract_method;
-  BaseStream.prototype._if  = BaseStream.prototype.$if;
   /**
    * Make edits to the stream when the condition in the corresponding 'if' call
    * is false. Only defined for $if branches
@@ -221,12 +220,14 @@
     var eachCursor = stream._cursor.clone();
     
     var eventedStream = new EventedStream(this.eval(array).delay(0).map(function(array){
-      return new ArrayStream(array.map(function(d,i){
+      var arrayStream = new ArrayStream(array.map(function(d,i){
         var context = new Context(d,i);
         var element = stream._el;
         var cursor  = eachCursor.clone();
         return new ElementStream(element, context, cursor).parent(stream);
-      }), stream._context).parent(stream);
+      }), stream._context);
+      arrayStream._name = 'each([' + array.toString() + '])';
+      return arrayStream.parent(stream);
     }), stream._context);
     eventedStream._name = 'each([' + array.toString() + '])';
     return eventedStream.parent(stream);
@@ -262,7 +263,6 @@
 
     return conditional.parent(this);
   };
-  ElementStream.prototype._if  = ElementStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
   ElementStream.prototype.call = function(callback){
     callback.call(this, this._el, this._context.data, this._context.index);
@@ -321,7 +321,6 @@
 
     return conditional.parent(this);
   };
-  ArrayStream.prototype._if  = ArrayStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
   ArrayStream.prototype.call = function(callback){
     this._streams.forEach(function(s){ s.call(callback); });
@@ -391,7 +390,6 @@
 
     return conditional.parent(this);
   };
-  EventedStream.prototype._if = EventedStream.prototype.$if;
   // ----- Utility ------------------------------------------------------------
   EventedStream.prototype.call = function(callback){
     this._event.onValue(function(stream){
@@ -418,6 +416,7 @@
     return this;
   };
 
+
   /////////////////////////////////////////////////////////////////////////////
   // EXPORTS
   /////////////////////////////////////////////////////////////////////////////
@@ -443,6 +442,7 @@
       child._name = name + '(' + args.map(function(a){ return a.toString(); }).join(',') + ')';
       return child.parent(this);
     };
+    return $spice;
   };
   $spice.defineModifier = function(name, modifier){
     BaseStream.prototype[name] = function(){
@@ -453,6 +453,7 @@
       });
       return this;
     };
+    return $spice;
   };
 
   $spice.VERSION = '0.6.5';

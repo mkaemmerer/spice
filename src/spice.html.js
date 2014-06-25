@@ -57,7 +57,6 @@
     $spice.defineModifier(attrName, attribute(attrName));
   });
   $spice.defineModifier('$class', attribute('class'));
-  $spice.defineModifier('_class', attribute('class'));
 
   function attribute(attrName){
     return function(el, value){
