@@ -274,7 +274,7 @@
     return this;
   };
   ElementStream.prototype.open = function(content){
-    if($spice.debug){ $(content).data('spice', getStack); }
+    if($spice.debug){ $(content).data('spice', getStack()); }
     this.append(content);
     var stream = new ElementStream(content, this._context);
     return stream.parent(this);

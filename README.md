@@ -148,7 +148,7 @@ stream
 Register ```method``` as a custom attribute modifier called with ```name```. The first argument to ```method``` is the DOM element, any arguments passed when you call ```name``` will be passed to the method as well. The return value is ignored.
 For example:
 ```
-$spice.defineTag("target", function(el, value){
+$spice.defineModifier('target', function(el, value){
 	$(el).attr('data-target', value);
 });
 
