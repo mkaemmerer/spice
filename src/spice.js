@@ -146,9 +146,9 @@
     if(typeof value === 'function'){
       return this.eval(this._context.eval(value));
     } else if(value instanceof Bacon.Observable){
-      return value;
+      return value.toProperty();
     } else {
-      return Bacon.once(value);
+      return Bacon.constant(value);
     }
   };
   /**

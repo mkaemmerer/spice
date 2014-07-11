@@ -9,7 +9,7 @@
   "scripts": {
     "test": "grunt"
   },
-  "author": "",
+  "author": "Matt Kaemmerer <mattk@spiceworks.com>",
   "license": "MIT",
   "devDependencies": {
     "grunt": "~0.4.2",
