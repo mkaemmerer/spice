@@ -59,13 +59,15 @@
    * Register a function as a tag writer for this stream
    */
   BaseStream.prototype.defineTag = function(name, tag){
+    tag.displayName = tag.displayName || name;
     this[name] = function(){
       var args  = [].slice.call(arguments);
       var child = tag.apply(this, args);
       child._name = name + '(' + args.map(function(a){ return a.toString(); }).join(',') + ')';
       return child.parent(this);
     };
-    this._tags[name] = tag;
+    this[name].displayName = 'tag';
+    this._tags[name]       = tag;
 
     return this;
   };
@@ -73,15 +75,17 @@
    * Register a function as a attribute modifier for this stream
    */
   BaseStream.prototype.defineModifier = function(name, modifier){
+    modifier.displayName = modifier.displayName || name;
     this[name] = function(){
       var args   = [].slice.call(arguments);
-      this.call(function(el){
+      this.call(function applyModifier(el){
         var ctx  = [el];
         modifier.apply(this, ctx.concat(args));
       });
       return this;
     };
-    this._modifiers[name] = modifier;
+    this[name].displayName = 'modifier';
+    this._modifiers[name]  = modifier;
 
     return this;
   };
@@ -323,7 +327,7 @@
   };
   // ----- Utility ------------------------------------------------------------
   ArrayStream.prototype.call = function(callback){
-    this._streams.forEach(function(s){ s.call(callback); });
+    this._streams.forEach(function call(s){ s.call(callback); });
     return this;
   };
   // ----- Builder Methods -----------------------------------------------------
@@ -392,7 +396,7 @@
   };
   // ----- Utility ------------------------------------------------------------
   EventedStream.prototype.call = function(callback){
-    this._event.onValue(function(stream){
+    this._event.onValue(function call(stream){
       stream.call(callback);
     });
     return this;
@@ -436,23 +440,27 @@
     return arrayStream;
   };
   $spice.defineTag = function(name, tag){
+    tag.displayName = tag.displayName || name;
     BaseStream.prototype[name] = function(){
       var args  = [].slice.call(arguments);
       var child = tag.apply(this, args);
       child._name = name + '(' + args.map(function(a){ return a.toString(); }).join(',') + ')';
       return child.parent(this);
     };
+    BaseStream.prototype[name].displayName = 'tag';
     return $spice;
   };
   $spice.defineModifier = function(name, modifier){
+    modifier.displayName = modifier.displayName || name;
     BaseStream.prototype[name] = function(){
       var args   = [].slice.call(arguments);
-      this.call(function(el){
+      this.call(function applyModifier(el){
         var ctx  = [el];
         modifier.apply(this, ctx.concat(args));
       });
       return this;
     };
+    BaseStream.prototype[name].displayName = 'modifier';
     return $spice;
   };
 
