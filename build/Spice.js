@@ -223,7 +223,7 @@
     var stream = this;
     var eachCursor = stream._cursor.clone();
     
-    var eventedStream = new EventedStream(this.eval(array).delay(0).map(function(array){
+    var eventedStream = new EventedStream(this.eval(array).map(function(array){
       var arrayStream = new ArrayStream(array.map(function(d,i){
         var context = new Context(d,i);
         var element = stream._el;
@@ -240,7 +240,7 @@
     var stream   = this;
     var ifCursor = this._cursor.clone();
     
-    condition = this.eval(condition).delay(0);
+    condition = this.eval(condition);
 
     var trueStream = condition.map(function(c){
       var context = stream._context;
