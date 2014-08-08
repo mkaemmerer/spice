@@ -53,6 +53,7 @@
   BaseStream.prototype._init = function(){
     this._tags      = {};
     this._modifiers = {};
+    this._onClear   = [];
     this._name      = null;
   };
   /**
@@ -177,12 +178,17 @@
    */
   BaseStream.prototype.clear  = abstract_method;
   /**
+   * Register a callback to be called when this element is deleted
+   */
+  BaseStream.prototype.onClear = abstract_method;
+  /**
    * Sets the parent stream.
    * The parent is returned by the method 'close' for convenient chaining
    */
   BaseStream.prototype.parent = function(parent){
     this._parent = parent;
     this._defineAll(parent._tags, parent._modifiers);
+    parent.onClear(this.clear.bind(this));
     return this;
   };
   /**
@@ -284,11 +290,17 @@
     return stream.parent(this);
   };
   ElementStream.prototype.clear = function(){
+    this._onClear.forEach(function(cb){ this.call(cb); }.bind(this));
+    this._onClear = [];
     this._cursor.clear();
     return this;
   };
+  ElementStream.prototype.onClear = function(callback){
+    this._onClear.push(callback);
+  };
   ElementStream.prototype.parent = function(parent){
     this._parent = parent;
+    parent.onClear(this.clear.bind(this));
     return this;
   };
 
@@ -346,6 +358,12 @@
   ArrayStream.prototype.clear = function(){
     this._streams.forEach(function(s){
       s.clear();
+    });
+    return this;
+  };
+  ArrayStream.prototype.onClear = function(callback){
+    this._streams.forEach(function(s){
+      s.onClear(callback);
     });
     return this;
   };
@@ -419,6 +437,12 @@
     });
     return this;
   };
+  EventedStream.prototype.onClear = function(callback){
+    this._event.onValue(function(stream){
+      stream.onClear(callback);
+    });
+    return this;
+  };
 
 
   /////////////////////////////////////////////////////////////////////////////
@@ -464,7 +488,7 @@
     return $spice;
   };
 
-  $spice.VERSION = '0.6.5';
+  $spice.VERSION = '0.6.6';
   $spice.debug   = false;
   root.$spice    = $spice;
 

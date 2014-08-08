@@ -126,9 +126,12 @@ Returns a stream that will create elements in parallel -- one for each object in
 
 ## Extending Spice
 
-### stream.call(callback)
+### stream.call(callback(element, data, index))
 Calls ```callback``` with the stream as ```this```, and the current element as the first argument.
 If there is a manipulation you want to be able to make to the DOM elements you are building that you can't accomplish with the existing methods in ```$spice```, you may find ```call``` useful.
+
+### stream.onClear(callback(element, data, index))
+Register ```callback``` with the stream to be called when this stream is cleared (such as when an $if statement changes condition).
 
 ### $spice.defineTag(name, method)
 Register ```method``` as a custom tag called with ```name```. ```method``` should return a new stream. Its parent will be automatically set to the stream that is used to create it.
