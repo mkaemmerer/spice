@@ -4,6 +4,8 @@
   "authors": [
     "Matt Kaemmerer <mattk@spiceworks.com>"
   ],
+  "private": "false",
+  "main": "dist/Spice.js",
   "license": "MIT",
   "ignore": [
     "**/.*",
