@@ -53,7 +53,7 @@
   BaseStream.prototype._init = function(){
     this._tags      = {};
     this._modifiers = {};
-    this._onClear   = [];
+    this._clear     = new Bacon.Bus();
     this._name      = null;
   };
   /**
@@ -151,7 +151,7 @@
     if(typeof value === 'function'){
       return this.eval(this._context.eval(value));
     } else if(value instanceof Bacon.Observable){
-      return value.toProperty();
+      return value.toProperty().takeUntil(this._clear);
     } else {
       return Bacon.constant(value);
     }
@@ -290,13 +290,12 @@
     return stream.parent(this);
   };
   ElementStream.prototype.clear = function(){
-    this._onClear.forEach(function(cb){ this.call(cb); }.bind(this));
-    this._onClear = [];
+    this._clear.push({});
     this._cursor.clear();
     return this;
   };
   ElementStream.prototype.onClear = function(callback){
-    this._onClear.push(callback);
+    this._clear.onValue(function(){ this.call(callback); }.bind(this));
   };
   ElementStream.prototype.parent = function(parent){
     this._parent = parent;
