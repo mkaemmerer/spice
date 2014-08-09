@@ -4,7 +4,7 @@
   "authors": [
     "Matt Kaemmerer <mattk@spiceworks.com>"
   ],
-  "main": "dist/Spice.js",
+  "main": "build/Spice.js",
   "license": "MIT",
   "ignore": [
     "**/.*",
