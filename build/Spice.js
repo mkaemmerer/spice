@@ -297,11 +297,6 @@
   ElementStream.prototype.onClear = function(callback){
     this._clear.onValue(function(){ this.call(callback); }.bind(this));
   };
-  ElementStream.prototype.parent = function(parent){
-    this._parent = parent;
-    parent.onClear(this.clear.bind(this));
-    return this;
-  };
 
   /////////////////////////////////////////////////////////////////////////////
   // MULTIPLE ELEMENT STREAMS

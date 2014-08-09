@@ -5,7 +5,6 @@
     "Matt Kaemmerer <mattk@spiceworks.com>"
   ],
   "license": "MIT",
-  "private": true,
   "ignore": [
     "**/.*",
     "node_modules",
@@ -20,6 +19,6 @@
   "devDependencies": {
     "foundation": "~5.2.0",
     "bootstrap": "~3.1.1",
-    "semantic": "~0.14.0"
+    "semantic": "~0.19.0"
   }
 }
