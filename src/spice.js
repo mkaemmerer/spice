@@ -92,13 +92,13 @@
   };
   BaseStream.prototype._defineAll = function(tags, modifiers){
     for(var fn in tags){
-      if(tags.hasOwnProperty(fn) && tags[fn]){
+      if(tags.hasOwnProperty(fn) && tags[fn] && !this._tags[fn]){
         this.defineTag(fn, tags[fn]);
       }
     }
 
     for(fn in modifiers){
-      if(modifiers.hasOwnProperty(fn) && modifiers[fn]){
+      if(modifiers.hasOwnProperty(fn) && modifiers[fn] && !this._modifiers[fn]){
         this.defineModifier(fn, modifiers[fn]);
       }
     }
@@ -188,7 +188,7 @@
   BaseStream.prototype.parent = function(parent){
     this._parent = parent;
     this._defineAll(parent._tags, parent._modifiers);
-    parent.onClear(this.clear.bind(this));
+    this._clear.plug(parent._clear);
     return this;
   };
   /**
@@ -426,7 +426,7 @@
     }), this._context).parent(this);
   };
   EventedStream.prototype.clear = function(){
-    this._event.take(1).onValue(function(stream){
+    this._event.onValue(function(stream){
       stream.clear();
     });
     return this;
@@ -482,7 +482,7 @@
     return $spice;
   };
 
-  $spice.VERSION = '0.6.6';
+  $spice.VERSION = '0.6.7';
   $spice.debug   = false;
   root.$spice    = $spice;
 
