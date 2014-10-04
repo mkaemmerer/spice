@@ -4,6 +4,14 @@
   function abstract_method(){ throw 'abstract method'; }
   function noop(){}
   function getStack(){ return (new Error()).stack; }
+  
+  function asProperty(value){
+    if(value instanceof Bacon.Observable){
+      return value.toProperty();
+    } else {
+      return Bacon.constant(value);
+    }
+  }
 
   /////////////////////////////////////////////////////////////////////////////
   // STREAM CONTEXT
@@ -147,14 +155,14 @@
    *     An observable:   Observable value
    * Returns an observable value
    */
-  BaseStream.prototype.eval = function(value){
+  BaseStream.prototype.eval = function(value, once){
     if(typeof value === 'function'){
-      return this.eval(this._context.eval(value));
-    } else if(value instanceof Bacon.Observable){
-      return value.toProperty().takeUntil(this._clear);
-    } else {
-      return Bacon.constant(value);
+      value = this._context.eval(value);
     }
+    if(!once){
+      return asProperty(value).takeUntil(this._clear);
+    }
+    return value;
   };
   /**
    * Call a callback with the current context (data and index),
@@ -482,7 +490,7 @@
     return $spice;
   };
 
-  $spice.VERSION = '0.6.7';
+  $spice.VERSION = '0.6.8';
   $spice.debug   = false;
   root.$spice    = $spice;
 
