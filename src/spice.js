@@ -490,7 +490,7 @@
     return $spice;
   };
 
-  $spice.VERSION = '0.6.8';
+  $spice.VERSION = '0.6.9';
   $spice.debug   = false;
   root.$spice    = $spice;
 
