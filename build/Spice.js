@@ -530,9 +530,10 @@
     }
   });
   $spice.defineModifier('attr', function(el, attr_name, attr_value){
-    this.eval(attr_value).onValue(function(value){
-      $(el).attr(attr_name, value);
-    });
+    this.eval(attr_value).assign($(el), 'attr', attr_name);
+  });
+  $spice.defineModifier('prop', function(el, prop_name, prop_value){
+    this.eval(prop_value).assign($(el), 'prop', prop_name);
   });
   $spice.defineModifier('text', function(el, text){
     var textNode = document.createTextNode('');
