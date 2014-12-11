@@ -1,5 +1,5 @@
 //Extensions
-(function($spice, $, Bacon){
+(function($spice, $){
   'use strict';
 
   /////////////////////////////////////////////////////////////////////////////
@@ -32,23 +32,35 @@
     }
   });
   $spice.defineModifier('attr', function(el, attr_name, attr_value){
-    this.eval(attr_value).assign($(el), 'attr', attr_name);
+    if(typeof attr_value === 'string'){
+      $(el).attr(attr_name, attr_value); //Optimize in case this is just a regular value
+    } else {
+      this.eval(attr_value).assign($(el), 'attr', attr_name);
+    }
   });
   $spice.defineModifier('prop', function(el, prop_name, prop_value){
-    this.eval(prop_value).assign($(el), 'prop', prop_name);
+    if(typeof prop_value === 'string'){
+      $(el).prop(prop_name, prop_value); //Optimize in case this is just a regular value
+    } else {
+      this.eval(prop_value).assign($(el), 'prop', prop_name);
+    }
   });
   $spice.defineModifier('text', function(el, text){
     var textNode = document.createTextNode('');
     this.append(textNode);
 
-    this.eval(text).onValue(function(text){
-      textNode.textContent = text;
-    });
+    if(typeof text === 'string'){
+      textNode.textContent = text; //Optimize in case this is just a regular value
+    } else {
+      this.eval(text).onValue(function(text){ textNode.textContent = text; });
+    }
   });
   $spice.defineModifier('addClass', function(el, class_name){
-    this.eval(class_name).onValue(function(class_name){
-      $(el).addClass(class_name);
-    });
+    if(typeof class_name === 'string'){
+      $(el).addClass(class_name); //Optimize in case this is just a regular value
+    } else {
+      this.eval(class_name).assign($(el), 'addClass');
+    }
   });
 
   //Attributes
@@ -110,4 +122,4 @@
     };
   }
 
-})(window.$spice, window.jQuery, window.Bacon);
+})(window.$spice, window.jQuery);
